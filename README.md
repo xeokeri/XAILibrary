@@ -19,10 +19,12 @@ A UIImage caching mechanism, that is configurable. Currently supports flushing o
 
 ###Instructions:
 
-####UIImageView Category
+***UIImageView Category***
+
     - (void)imageWithURL:(NSString *)imageURL;
 
-####Example
+***Example***
+
     [cell.thumbnailView imageWithURL:@"http://localhost/path/to/your/image/file.png"];
 
 ###Note:
