@@ -11,8 +11,20 @@ XAIImageCache
  	* 5: Load image in CGSize cache. (pending, upcoming feature... the reason for this code base.)
  	* 6: Add in support for image cache removable based on date length. (done)
  	* 7: Update for ARC support. (pending)
- 	* 8: Add in documentation. (pending)		
+ 	* 8: Add in documentation. (pending)
 
+	Instructions:
+
+	I am currently using this on a UIImageView in a UITableView cell, The only one I've thoroughly tested on is:
+
+	UIImageView Category
+	- (void)imageWithURL:(NSString *)imageURL;
+
+	Example:
+	[cell.thumbnailView imageWithURL:@"http://localhost/path/to/your/image/file.png"];
+
+	Where your cell.thumbnailView, or any other view is a UIImageView. It will then fetch using NSOperationQueue, NSOperation, and NSURLConnection to fetch the image, then save to cache.
+	If the image already exists in the cache, based on the URL string, it will use that first and bypass the NSOperationQueue completely.
 
 XAILogging
 
