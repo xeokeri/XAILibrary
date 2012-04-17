@@ -3,7 +3,7 @@
 //  XAILogging
 //
 //  Created by Xeon Xai on 3/16/12.
-//  Copyright (c) 2012 Bonnier Corp. All rights reserved.
+//  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
 //
 
 #import "NSException+Customized.h"
