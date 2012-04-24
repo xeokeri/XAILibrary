@@ -12,8 +12,6 @@ A UIImage caching mechanism, that is configurable. Currently supports flushing o
 * Support for max concurrent connections. Defaults to 10.
 
 ###Pending:
-* Load image in CGSize cache. Upcoming feature and the primary reason for this code base.
-* UIButton.image, placeholder (possibly with spinner.) Upcoming feature and the secondary reason for this code base
 * Update for ARC support.
 * Add inline documentation to code.
 
@@ -29,8 +27,6 @@ A UIImage caching mechanism, that is configurable. Currently supports flushing o
 
 ###Note:
 I am currently using this on a UIImageView in a UITableView cell. It can be used on any UIImageView. It will then use NSOperationQueue, NSOperation, and NSURLConnection to fetch the image, then save to cache. If the image already exists in the cache, based on the URL string, it will use that first and bypass the NSOperationQueue completely.
-
-*I have not thoroughly tested all the code for the UIButton category of this, as I won't need to use it until my next project. At which time I'll update that part, and revise the code as needed.*
 
 #XAILogging
 
