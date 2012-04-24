@@ -9,16 +9,21 @@
 #import "XAIImageCacheQueue.h"
 #import "XAIImageCacheDefines.h"
 
+#import "XAIImageCacheOperation.h"
+
 #import "NSError+Customized.h"
 #import "NSException+Customized.h"
 
 @implementation XAIImageCacheQueue
+
+@synthesize urlList;
 
 - (id)init {
     self = [super init];
     
     if (self) {
         self.maxConcurrentOperationCount = kXAIImageCacheQueueMaxLimit;
+        self.urlList                     = [NSMutableArray array];
     }
     
     return self;
@@ -32,8 +37,6 @@
             NSAssert(instanceQueue == nil, @"InstanceQueue should be nil.");
             
             instanceQueue = [[self alloc] init];
-            
-            //NSLog(@"InstanceQueue: %@", instanceQueue);
         }
     }
     
@@ -114,6 +117,39 @@
         [exception logDetailsFailedOnSelector:_cmd line:__LINE__];
     } @finally {
         [defaults setObject:[NSDate date] forKey:kXAIImageCacheFlushPerformed];
+    }
+}
+
+- (void)addOperation:(NSOperation *)op {
+    @synchronized(self) {
+        if ([op isKindOfClass:[XAIImageCacheOperation class]]) {
+            NSString *operationURL = ((XAIImageCacheOperation *)op).downloadURL;
+            
+            if (operationURL.length > 0) {
+                @try {
+                    if  (![self.urlList containsObject:operationURL]) {
+                        if (op) {
+                            [self.urlList addObject:operationURL];
+                            [super addOperation:op];
+                        }
+                    }
+                } @catch (NSException *exception) {
+                    [exception logDetailsFailedOnSelector:_cmd line:__LINE__];
+                }
+            }
+        }
+    }
+}
+
+- (void)removeURL:(NSString *)url {
+    @synchronized(self) {
+        @try {
+            if ([self.urlList containsObject:url]) {
+                [self.urlList removeObject:url];
+            }
+        } @catch (NSException *exception) {
+            [exception logDetailsFailedOnSelector:_cmd line:__LINE__];
+        }
     }
 }
 

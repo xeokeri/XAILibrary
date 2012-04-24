@@ -13,5 +13,6 @@
 + (UIImageView *)imageViewWithURL:(NSString *)url;
 
 - (void)imageWithURL:(NSString *)url;
+- (void)imageWithURL:(NSString *)url resize:(BOOL)resizeImage;
 
 @end

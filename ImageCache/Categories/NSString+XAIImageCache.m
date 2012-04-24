@@ -12,10 +12,6 @@
 
 @implementation NSString (XAIImageCache)
 
-/**
- * This will be extended to use some new, required for the next revision for the upcoming future.
- */
-
 - (NSString *)md5HexEncode {
     const char *input = [self UTF8String];
     
@@ -30,6 +26,10 @@
     }
     
     return encryptedResult;
+}
+
+- (NSString *)cachedURLForImageSize:(CGSize)imageSize {
+    return [NSString stringWithFormat:@"%@+%@", self, NSStringFromCGSize(imageSize)];
 }
 
 @end

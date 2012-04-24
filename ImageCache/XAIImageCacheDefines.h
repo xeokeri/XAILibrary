@@ -8,7 +8,7 @@
 
 /** NSUInteger */
 #define kXAIImageCacheQueueMaxLimit   10
-#define kXAIImageCacheTimeoutInterval 10.0
+#define kXAIImageCacheTimeoutInterval 20
 #define kXAIImageCacheFlushInterval   7 /** Number in days. */
 
 /** CGFloat */

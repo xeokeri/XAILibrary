@@ -9,10 +9,14 @@
 #import <Foundation/Foundation.h>
 
 @interface XAIImageCacheQueue : NSOperationQueue {
-    
+    @private
+    NSMutableArray *urlList;
 }
+
+@property (nonatomic, retain) NSMutableArray *urlList;
 
 + (XAIImageCacheQueue *)sharedQueue;
 - (void)cacheCleanup;
+- (void)removeURL:(NSString *)url;
 
 @end

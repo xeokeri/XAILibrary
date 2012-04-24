@@ -8,6 +8,7 @@
 
 #import "UIImageView+XAIImageCache.h"
 #import "UIImage+XAIImageCache.h"
+#import "NSString+XAIImageCache.h"
 
 #import "XAIImageCacheOperation.h"
 #import "XAIImageCacheQueue.h"
@@ -22,7 +23,7 @@
     imageView.alpha  = 0.0f;
     imageView.hidden = YES;
 
-    XAIImageCacheOperation *cacheOperation = [[XAIImageCacheOperation alloc] initWithURL:imageURL withImageViewDelegate:imageView];
+    XAIImageCacheOperation *cacheOperation = [[XAIImageCacheOperation alloc] initWithURL:imageURL delegate:imageView];
     
     [[XAIImageCacheQueue sharedQueue] addOperation:cacheOperation];
     
@@ -31,29 +32,30 @@
     return [imageView autorelease];
 }
 
-- (void)imageWithURL:(NSString *)imageURL {
+- (void)imageWithURL:(NSString *)url {
+    [self imageWithURL:url resize:YES];
+}
+
+- (void)imageWithURL:(NSString *)url resize:(BOOL)resizeImage {
     [[XAIImageCacheQueue sharedQueue] cacheCleanup];
     
-    self.alpha  = 0.0f;
-    self.hidden = YES;
-    self.image  = nil;
-    
-    UIImage *cachedImage = [UIImage cachedImageForURL:imageURL];
+    NSString *cacheURL   = (resizeImage) ? [url cachedURLForImageSize:self.frame.size] : url;
+    UIImage *cachedImage = [UIImage cachedImageForURL:cacheURL];
     
     if (cachedImage) {
         @try {
-            [UIView beginAnimations:@"LoadCachedImage" context:nil];
-            
-            self.image = cachedImage;
+            self.image  = cachedImage;
             self.hidden = NO;
             self.alpha  = 1.0f;
-            
-            [UIView commitAnimations];
         } @catch (NSException *exception) {
             [exception logDetailsFailedOnSelector:_cmd line:__LINE__];
         }
     } else {
-        XAIImageCacheOperation *cacheOperation = [[XAIImageCacheOperation alloc] initWithURL:imageURL withImageViewDelegate:self];
+        self.alpha  = 0.0f;
+        self.hidden = YES;
+        self.image  = nil;
+        
+        XAIImageCacheOperation *cacheOperation = [[XAIImageCacheOperation alloc] initWithURL:url delegate:self resize:resizeImage];
         
         [[XAIImageCacheQueue sharedQueue] addOperation:cacheOperation];
         

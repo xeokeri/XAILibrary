@@ -10,6 +10,9 @@
 
 @interface UIButton (XAIImageCache)
 
-+ (UIButton *)buttonWithURL:(NSString *)imageURL;
++ (UIButton *)buttonWithURL:(NSString *)url;
+
+- (void)imageWithURL:(NSString *)url;
+- (void)imageWithURL:(NSString *)url resize:(BOOL)resizeImage;
 
 @end

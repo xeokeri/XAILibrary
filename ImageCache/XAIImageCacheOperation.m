@@ -7,7 +7,10 @@
 //
 
 #import "XAIImageCacheOperation.h"
+#import "XAIImageCacheQueue.h"
+#import "XAIImageCacheStorage.h"
 #import "XAIImageCacheDefines.h"
+#import "XAIImageCacheDelegate.h"
 
 #import "UIImage+XAIImageCache.h"
 #import "NSString+XAIImageCache.h"
@@ -18,72 +21,157 @@
 @interface XAIImageCacheOperation()
 
 - (void)resetData;
+- (void)checkOperationStatus;
+- (void)changeStatus:(BOOL)status forType:(XAIImageCacheStatusType)type;
 - (void)updateOperationStatus;
 - (void)updateImageViewWithImage:(UIImage *)imageContent cache:(BOOL)cacheStore;
-- (void)saveImage:(UIImage *)image forURL:(NSString *)imageURL;
 - (UIImage *)dataAsUIImage;
 
 @end
 
 @implementation XAIImageCacheOperation
 
-@synthesize receivedData, delegateView, downloadURL, downloadConnection;
+@synthesize receivedData, delegateView, downloadURL, downloadConnection, downloadPort;
 @synthesize operationFinished, operationExecuting;
+@synthesize loadImageResized;
+@synthesize containerSize, containerIndexPath;
+
+#pragma mark - Init
 
 - (id)init {
     self = [super init];
     
     if (self) {
-        self.receivedData       = [[NSMutableData alloc] init];
+        self.receivedData       = [NSMutableData data];
         self.operationExecuting = NO;
         self.operationFinished  = NO;
+        self.queuePriority      = NSOperationQueuePriorityVeryLow;
+        self.containerSize      = CGSizeZero;
+        self.containerIndexPath = nil;
+        self.downloadPort       = [NSPort port];
     }
     
     return self;
 }
 
-- (void)dealloc {
-    [self.receivedData release];
-    [self.downloadConnection release];
-    
-    [super dealloc];
+#pragma mark - Init for UIImageView and UIButton
+
+- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id)incomingDelegate {
+    return [self initWithURL:imageURL delegate:incomingDelegate resize:YES];
 }
 
-- (void)start {
-    [self willChangeValueForKey:@"isExecuting"];
-    self.operationExecuting = YES;
-    [self didChangeValueForKey:@"isExecuting"];
-    
-    NSURLRequest *request = [[NSURLRequest alloc] initWithURL:[NSURL URLWithString:self.downloadURL] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:kXAIImageCacheTimeoutInterval];
-    
-    /** Set the connection. */
-    self.downloadConnection = [[NSURLConnection alloc] initWithRequest:request delegate:self startImmediately:NO];
-    
-    [request release];
-    
-    if (self.downloadConnection) {
-        NSPort *port       = [NSPort port];
-        NSRunLoop *runLoop = [NSRunLoop currentRunLoop];
-        
-        [runLoop addPort:port forMode:NSDefaultRunLoopMode];
-        
-        [self.downloadConnection scheduleInRunLoop:runLoop forMode:NSDefaultRunLoopMode];
-        [self.downloadConnection start];
-        
-        [runLoop run];
-    }
-}
-
-- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL withImageViewDelegate:(UIImageView *)imageViewDelegate {
+- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id)incomingDelegate resize:(BOOL)imageResize {
     self = [self init];
     
     if (self) {
-        self.delegateView = imageViewDelegate;
-        self.downloadURL  = imageURL;
+        self.delegateView     = ([incomingDelegate isKindOfClass:[UITableView class]]) ? nil : incomingDelegate;
+        self.downloadURL      = imageURL;
+        self.loadImageResized = imageResize;
     }
     
     return self;    
 }
+
+#pragma mark - Init for UIView
+
+- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id)incomingDelegate size:(CGSize)imageSize {
+    self = [self init];
+    
+    if (self) {
+        self.delegateView       = ([incomingDelegate isKindOfClass:[UITableView class]]) ? nil : incomingDelegate;
+        self.downloadURL        = imageURL;
+        self.loadImageResized   = YES;
+        self.containerSize      = imageSize;
+    }
+    
+    return self;  
+}
+
+#pragma mark - Init for UITableView
+
+- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id)incomingDelegate atIndexPath:(NSIndexPath *)indexPath size:(CGSize)imageSize {
+    self = [self init];
+    
+    if (self) {
+        self.delegateView       = ([incomingDelegate isKindOfClass:[UITableView class]]) ? nil : incomingDelegate;
+        self.downloadURL        = imageURL;
+        self.loadImageResized   = YES;
+        self.containerSize      = imageSize;
+        self.containerIndexPath = indexPath;
+    }
+    
+    return self;  
+}
+
+#pragma mark - Memory Management
+
+- (void)dealloc {
+    [receivedData release], receivedData = nil;
+    [downloadURL release], downloadURL = nil;
+    [downloadConnection release], downloadConnection = nil;
+    [downloadPort release], downloadPort = nil;
+    delegateView = nil;
+    
+    [super dealloc];
+}
+
+#pragma mark - NSOperation Start
+
+- (void)start {
+    [self changeStatus:YES forType:kXAIImageCacheStatusTypeExecuting];
+    
+    if (self.isCancelled) {
+        [self updateOperationStatus];
+        return;
+    }
+    
+    /** Configure the Container Size. */
+    @try {
+        if ([self.delegateView respondsToSelector:@selector(isKindOfClass:)]) {
+            if (self.delegateView && [self.delegateView isKindOfClass:[UIButton class]]) {
+                self.containerSize = ((UIButton *) self.delegateView).frame.size;
+            } else if (self.delegateView && [self.delegateView isKindOfClass:[UIImageView class]]) {
+                self.containerSize = ((UIImageView *) self.delegateView).frame.size;
+            } else {
+                // Do nothing.
+            }
+        }
+    } @catch (NSException *exception) {
+        [exception logDetailsFailedOnSelector:_cmd line:__LINE__];
+    } @finally {
+        if (self.containerSize.width == CGSizeZero.width && self.containerSize.height == CGSizeZero.height) {
+            [self updateOperationStatus];
+            
+            return;
+        }
+    }
+    
+    /** Set the request and the connection. */
+    NSURLRequest *request   = [[NSURLRequest alloc] initWithURL:[NSURL URLWithString:self.downloadURL] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:kXAIImageCacheTimeoutInterval];
+    NSURLConnection *conn   = [[NSURLConnection alloc] initWithRequest:request delegate:self];
+    
+    self.downloadConnection = conn;
+    
+    [conn release];
+    [request release];
+    
+    /** Set the port for the NSRunLoop and start the download connection. */
+    if (self.downloadConnection) {
+        NSRunLoop *runLoop = [NSRunLoop currentRunLoop];
+        
+        [runLoop addPort:self.downloadPort forMode:NSDefaultRunLoopMode];
+        
+        [self.downloadConnection scheduleInRunLoop:runLoop forMode:NSRunLoopCommonModes];
+        
+        [self.downloadConnection start];
+        
+        [runLoop run];
+    }
+    
+    [self checkOperationStatus];
+}
+
+#pragma mark - NSOperation Status
 
 - (BOOL)isConcurrent {
     return YES;
@@ -97,6 +185,50 @@
     return self.isOperationExecuting;
 }
 
+- (void)changeStatus:(BOOL)status forType:(XAIImageCacheStatusType)type {
+    switch (type) {
+        case kXAIImageCacheStatusTypeFinished: {
+            [self willChangeValueForKey:@"isFinished"];
+            self.operationFinished = status;
+            [self didChangeValueForKey:@"isFinished"];
+        }
+            
+            break;
+            
+        case kXAIImageCacheStatusTypeExecuting: {
+            [self willChangeValueForKey:@"isExecuting"];
+            self.operationExecuting = status;
+            [self didChangeValueForKey:@"isExecuting"];
+        }
+            break;
+            
+        default:
+            break;
+    }
+}
+
+- (void)checkOperationStatus {
+    if (self.isCancelled) {
+        [self.downloadConnection cancel];
+        
+        [self updateOperationStatus];
+    }
+}
+
+- (void)updateOperationStatus {
+    /** Remove the port. */
+    [[NSRunLoop currentRunLoop] removePort:self.downloadPort forMode:NSDefaultRunLoopMode];
+    
+    [self.downloadConnection cancel];
+    
+    [[XAIImageCacheQueue sharedQueue] removeURL:self.downloadURL];
+    
+    [self changeStatus:YES forType:kXAIImageCacheStatusTypeFinished];
+    [self changeStatus:NO forType:kXAIImageCacheStatusTypeExecuting];
+}
+
+#pragma mark - NSData
+
 - (void)resetData {
     @try {
         [self.receivedData setLength:0];
@@ -105,94 +237,143 @@
     }
 }
 
+#pragma mark - UIImage
+
 - (UIImage *)dataAsUIImage {
     return [UIImage imageWithData:self.receivedData];
 }
+
+#pragma mark - NSURLConnectionDataDelegate
 
 - (NSURLRequest *)connection:(NSURLConnection *)connection willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response {
     return request;
 }
 
-#pragma mark - NSURLConnection Delegates
 - (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response {
     [self resetData];
+    [self checkOperationStatus];
 }
 
 - (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data {
-	[self.receivedData appendData:data];
+    if (self.isCancelled) {
+        [self updateOperationStatus];
+    } else {
+        [self.receivedData appendData:data];
+    }
 }
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection {
     UIImage *imageContent = [self dataAsUIImage];
     
     /** Load the image and store in the cache. */
-    [self updateImageViewWithImage:imageContent cache:YES];
+    if (!self.isCancelled) {
+        [self updateImageViewWithImage:imageContent cache:YES];
+    }
     
     [self resetData];
+    [self checkOperationStatus];
     [self updateOperationStatus];
 }
+
+#pragma mark - NSURLConnectionDelegate
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error {
     [error logDetailsFailedOnSelector:_cmd line:__LINE__];
     
     /** Make sure the image is cleared out. */
     [self updateImageViewWithImage:nil cache:NO];
-    
     [self resetData];
     [self updateOperationStatus];
 }
 
-- (void)saveImage:(UIImage *)image forURL:(NSString *)imageURL {
-    /** Create the image cache folder. */
-    NSError *error        = nil;
-    NSArray *cachePaths   = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
-    NSString *cacheFolder = [[cachePaths lastObject] stringByAppendingPathComponent:kXAIImageCacheDirectoryPath];
-    NSFileManager *fileManager = [NSFileManager defaultManager];
+#pragma mark - Delegate View Callback
+
+- (void)updateImageViewWithImage:(UIImage *)imageContent cache:(BOOL)cacheStore {
+    UIImage *resizedImage = nil;
     
-    if (![fileManager fileExistsAtPath:cacheFolder]) {
-        [fileManager createDirectoryAtPath:cacheFolder withIntermediateDirectories:NO attributes:nil error:&error];
+    if (self.isCancelled) {
+        [self updateOperationStatus];
         
-        if (error != nil) {
-            [error logDetailsFailedOnSelector:_cmd line:__LINE__];
+        return;
+    }
+    
+    if (cacheStore == YES) {
+        [[XAIImageCacheStorage sharedStorage] saveImage:imageContent forURL:self.downloadURL];
+        
+        NSString *cachedURL = [self.downloadURL cachedURLForImageSize:self.containerSize];
+        
+        if (self.shouldLoadImageResized && imageContent.size.width == self.containerSize.width && imageContent.size.height == self.containerSize.height) {
+            [[XAIImageCacheStorage sharedStorage] saveImage:imageContent forURL:cachedURL];
             
-            return;
+            [self setLoadImageResized:NO];
+        }
+        
+        if (self.shouldLoadImageResized && imageContent.size.width != self.containerSize.width && imageContent.size.height != self.containerSize.height) {
+            resizedImage = [imageContent resizeToFillSize:self.containerSize];
+            
+            [[XAIImageCacheStorage sharedStorage] saveImage:resizedImage forURL:cachedURL];
         }
     }
     
-    NSData *imageData   = [NSData dataWithData:UIImagePNGRepresentation(image)];
-    NSArray *cachePath  = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
-    NSString *imagePath = [[cachePath lastObject] stringByAppendingPathComponent:[NSString stringWithFormat:kXAIImageCacheFileNamePath, kXAIImageCacheDirectoryPath, [imageURL md5HexEncode]]];
+    if (!self.delegateView) {
+        return;
+    }
     
-    [imageData writeToFile:imagePath atomically:YES];
-}
-
-- (void)updateImageViewWithImage:(UIImage *)imageContent cache:(BOOL)cacheStore {
-    if (cacheStore == YES) {
-        [self saveImage:imageContent forURL:self.downloadURL];
+    if (self.shouldLoadImageResized) {
+        if (resizedImage == nil) {
+            resizedImage = [imageContent resizeToFillSize:self.containerSize];
+        }
+        
+        imageContent = resizedImage;
+    }
+    
+    if (self.isCancelled) {
+        [self updateOperationStatus];
+        
+        return;
     }
     
     @try {
-        [UIView beginAnimations:@"LoadImageWithFade" context:nil];
-        [UIView setAnimationDuration:kXAIImageCacheFadeInDuration];
+        if (self.isCancelled) {
+            [self updateOperationStatus];
+            
+            return;
+        }
         
-        self.delegateView.hidden = NO;
-        self.delegateView.image  = imageContent;
-        self.delegateView.alpha  = 1.0f;
-        
-        [UIView commitAnimations];
+        if (self.delegateView) {
+            if (self.isCancelled) {
+                [self updateOperationStatus];
+                return;
+            }
+            
+            if ([self.delegateView respondsToSelector:@selector(processCachedImage:atIndexPath:)]) {
+                [self.delegateView processCachedImage:imageContent atIndexPath:self.containerIndexPath];
+            } else {
+                [UIView beginAnimations:@"LoadImageWithFade" context:nil];
+                [UIView setAnimationDuration:kXAIImageCacheFadeInDuration];
+                
+                [self.delegateView setHidden:NO];
+                
+                if ([self.delegateView respondsToSelector:@selector(processCachedImage:)]) {
+                    [self.delegateView processCachedImage:imageContent];
+                } else if ([self.delegateView isKindOfClass:[UIButton class]]) {
+                    [self.delegateView setImage:imageContent forState:UIControlStateNormal];
+                    [self.delegateView setImage:imageContent forState:UIControlStateHighlighted];
+                    [self.delegateView setImage:imageContent forState:UIControlStateSelected];
+                } else if ([self.delegateView isKindOfClass:[UIImageView class]]) {
+                    [self.delegateView setImage:imageContent];
+                } else {
+                    // Do nothing.
+                }
+                
+                [self.delegateView setAlpha:1.0f];
+                
+                [UIView commitAnimations];
+            }
+        }
     } @catch (NSException *exception) {
         [exception logDetailsFailedOnSelector:_cmd line:__LINE__];
     }
-}
-
-- (void)updateOperationStatus {
-    [self willChangeValueForKey:@"isExecuting"];
-    self.operationExecuting = NO;
-    [self didChangeValueForKey:@"isExecuting"];
-    
-    [self willChangeValueForKey:@"isFinished"];
-    self.operationFinished = YES;
-    [self didChangeValueForKey:@"isFinished"];
 }
 
 @end

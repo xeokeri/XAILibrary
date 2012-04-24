@@ -11,5 +11,6 @@
 @interface NSString (XAIImageCache)
 
 - (NSString *)md5HexEncode;
+- (NSString *)cachedURLForImageSize:(CGSize)imageSize;
 
 @end
