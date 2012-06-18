@@ -2,18 +2,19 @@
 //  UIButton+XAIImageCache.m
 //  XAIImageCache
 //
-//  Created by Xeon Xai on 2/24/12.
+//  Created by Xeon Xai <xeonxai@me.com> on 2/24/12.
 //  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
 //
+
+#import "XAIImageCacheQueue.h"
+#import "XAIImageCacheOperation.h"
+#import "XAIImageCacheDelegate.h"
 
 #import "UIButton+XAIImageCache.h"
 #import "UIImage+XAIImageCache.h"
 #import "NSString+XAIImageCache.h"
 
-#import "XAIImageCacheQueue.h"
-#import "XAIImageCacheOperation.h"
-
-#import "NSException+Customized.h"
+#import "NSException+XAILogging.h"
 
 @implementation UIButton (XAIImageCache)
 
@@ -27,7 +28,9 @@
     
     [[XAIImageCacheQueue sharedQueue] addOperation:cacheOperation];
     
-    [cacheOperation release];
+    #if !__has_feature(objc_arc)
+        [cacheOperation release];
+    #endif
     
     return button;
 }
@@ -40,8 +43,8 @@
     [[XAIImageCacheQueue sharedQueue] cacheCleanup];
     
     [self setImage:nil forState:UIControlStateNormal];
-    [self setImage:nil forState:UIControlStateHighlighted];
-    [self setImage:nil forState:UIControlStateSelected];
+    
+    [self setAdjustsImageWhenHighlighted:YES];
     
     NSString *cacheURL   = (resizeImage) ? [url cachedURLForImageSize:self.frame.size] : url;
     UIImage *cachedImage = [UIImage cachedImageForURL:cacheURL];
@@ -50,11 +53,13 @@
         @try {
             [self setHidden:NO];
             
-            [self setImage:cachedImage forState:UIControlStateNormal];
-            [self setImage:cachedImage forState:UIControlStateHighlighted];
-            [self setImage:cachedImage forState:UIControlStateSelected];
+            if ([self respondsToSelector:@selector(processCachedImage:)]) {
+                [self performSelector:@selector(processCachedImage:) withObject:cachedImage];
+            } else {
+                [self setImage:cachedImage forState:UIControlStateNormal];
+            }
         } @catch (NSException *exception) {
-            [exception logDetailsFailedOnSelector:_cmd line:__LINE__];
+            [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
         }
     } else {
         self.hidden          = YES;
@@ -64,7 +69,9 @@
         
         [[XAIImageCacheQueue sharedQueue] addOperation:cacheOperation];
         
-        [cacheOperation release];
+        #if !__has_feature(objc_arc)
+            [cacheOperation release];
+        #endif
     }
 }
 

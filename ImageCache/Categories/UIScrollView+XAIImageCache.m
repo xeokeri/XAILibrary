@@ -1,12 +1,12 @@
 //
-//  UITableView+XAIImageCache.m
+//  UIScrollView+XAIImageCache.m
 //  XAIImageCache
 //
-//  Created by Xeon Xai <xeonxai@me.com> on 4/11/12.
+//  Created by Xeon Xai <xeonxai@me.com> on 6/6/12.
 //  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
 //
 
-#import "UITableView+XAIImageCache.h"
+#import "UIScrollView+XAIImageCache.h"
 #import "UIImage+XAIImageCache.h"
 #import "NSString+XAIImageCache.h"
 #import "NSException+XAILogging.h"
@@ -15,7 +15,11 @@
 #import "XAIImageCacheOperation.h"
 #import "XAIImageCacheDelegate.h"
 
-@implementation UITableView (XAIImageCache)
+@implementation UIScrollView (XAIImageCache)
+
+- (void)imageWithURL:(NSString *)url atIndexPath:(NSIndexPath *)indexPath delegate:(id <XAIImageCacheDelegate>)incomingDelegate {
+    [self imageWithURL:url atIndexPath:indexPath delegate:incomingDelegate size:CGSizeZero];
+}
 
 - (void)imageWithURL:(NSString *)url atIndexPath:(NSIndexPath *)indexPath delegate:(id <XAIImageCacheDelegate>)incomingDelegate size:(CGSize)imageSize {
     [[XAIImageCacheQueue sharedQueue] cacheCleanup];

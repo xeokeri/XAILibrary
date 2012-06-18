@@ -2,7 +2,7 @@
 //  UIImageView+XAIImageCache.m
 //  XAIImageCache
 //
-//  Created by Xeon Xai on 2/24/12.
+//  Created by Xeon Xai <xeonxai@me.com> on 2/24/12.
 //  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
 //
 
@@ -13,7 +13,7 @@
 #import "XAIImageCacheOperation.h"
 #import "XAIImageCacheQueue.h"
 
-#import "NSException+Customized.h"
+#import "NSException+XAILogging.h"
 
 @implementation UIImageView (XAIImageCache)
 
@@ -27,9 +27,12 @@
     
     [[XAIImageCacheQueue sharedQueue] addOperation:cacheOperation];
     
-    [cacheOperation release];
+    #if !__has_feature(objc_arc)
+        [cacheOperation release];
+        [imageView autorelease];
+    #endif
     
-    return [imageView autorelease];
+    return imageView;
 }
 
 - (void)imageWithURL:(NSString *)url {
@@ -48,7 +51,7 @@
             self.hidden = NO;
             self.alpha  = 1.0f;
         } @catch (NSException *exception) {
-            [exception logDetailsFailedOnSelector:_cmd line:__LINE__];
+            [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
         }
     } else {
         self.alpha  = 0.0f;
@@ -59,7 +62,9 @@
         
         [[XAIImageCacheQueue sharedQueue] addOperation:cacheOperation];
         
-        [cacheOperation release];
+        #if !__has_feature(objc_arc)
+            [cacheOperation release];
+        #endif
     }
 }
 

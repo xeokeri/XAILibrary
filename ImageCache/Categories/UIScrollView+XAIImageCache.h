@@ -1,8 +1,8 @@
 //
-//  UITableView+XAIImageCache.h
+//  UIScrollView+XAIImageCache.h
 //  XAIImageCache
 //
-//  Created by Xeon Xai <xeonxai@me.com> on 4/11/12.
+//  Created by Xeon Xai <xeonxai@me.com> on 6/6/12.
 //  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
 //
 
@@ -11,8 +11,9 @@
 
 @protocol XAIImageCacheDelegate;
 
-@interface UITableView (XAIImageCache)
+@interface UIScrollView (XAIImageCache)
 
+- (void)imageWithURL:(NSString *)url atIndexPath:(NSIndexPath *)indexPath delegate:(id <XAIImageCacheDelegate>)incomingDelegate;
 - (void)imageWithURL:(NSString *)url atIndexPath:(NSIndexPath *)indexPath delegate:(id <XAIImageCacheDelegate>)incomingDelegate size:(CGSize)imageSize;
 
 @end

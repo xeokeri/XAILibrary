@@ -2,7 +2,7 @@
 //  XAIImageCacheOperation.m
 //  XAIImageCache
 //
-//  Created by Xeon Xai on 2/24/12.
+//  Created by Xeon Xai <xeonxai@me.com> on 2/24/12.
 //  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
 //
 
@@ -15,8 +15,9 @@
 #import "UIImage+XAIImageCache.h"
 #import "NSString+XAIImageCache.h"
 
-#import "NSError+Customized.h"
-#import "NSException+Customized.h"
+/** XAILogging */
+#import "NSError+XAILogging.h"
+#import "NSException+XAILogging.h"
 
 @interface XAIImageCacheOperation()
 
@@ -24,7 +25,7 @@
 - (void)checkOperationStatus;
 - (void)changeStatus:(BOOL)status forType:(XAIImageCacheStatusType)type;
 - (void)updateOperationStatus;
-- (void)updateImageViewWithImage:(UIImage *)imageContent cache:(BOOL)cacheStore;
+- (void)updateDelegateWithImage:(UIImage *)imageContent cache:(BOOL)cacheStore;
 - (UIImage *)dataAsUIImage;
 
 @end
@@ -42,6 +43,7 @@
     self = [super init];
     
     if (self) {
+        self.delegateView       = nil;
         self.receivedData       = [NSMutableData data];
         self.operationExecuting = NO;
         self.operationFinished  = NO;
@@ -87,7 +89,7 @@
     return self;  
 }
 
-#pragma mark - Init for UITableView
+#pragma mark - Init for UITableView and UIScrollView
 
 - (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id)incomingDelegate atIndexPath:(NSIndexPath *)indexPath size:(CGSize)imageSize {
     self = [self init];
@@ -95,7 +97,7 @@
     if (self) {
         self.delegateView       = ([incomingDelegate isKindOfClass:[UITableView class]]) ? nil : incomingDelegate;
         self.downloadURL        = imageURL;
-        self.loadImageResized   = YES;
+        self.loadImageResized   = (CGSizeZero.width == imageSize.width && CGSizeZero.height == imageSize.height) ? NO : YES;
         self.containerSize      = imageSize;
         self.containerIndexPath = indexPath;
     }
@@ -106,13 +108,22 @@
 #pragma mark - Memory Management
 
 - (void)dealloc {
-    [receivedData release], receivedData = nil;
-    [downloadURL release], downloadURL = nil;
-    [downloadConnection release], downloadConnection = nil;
-    [downloadPort release], downloadPort = nil;
-    delegateView = nil;
+    #if !__has_feature(objc_arc)
+        [receivedData release];
+        [downloadURL release];
+        [downloadConnection release];
+        [downloadPort release];
+    #endif
     
-    [super dealloc];
+    receivedData       = nil;
+    downloadURL        = nil;
+    downloadConnection = nil;
+    downloadPort       = nil;
+    delegateView       = nil;
+    
+    #if !__has_feature(objc_arc)
+        [super dealloc];
+    #endif
 }
 
 #pragma mark - NSOperation Start
@@ -137,12 +148,14 @@
             }
         }
     } @catch (NSException *exception) {
-        [exception logDetailsFailedOnSelector:_cmd line:__LINE__];
+        [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
     } @finally {
-        if (self.containerSize.width == CGSizeZero.width && self.containerSize.height == CGSizeZero.height) {
-            [self updateOperationStatus];
-            
-            return;
+        if (self.shouldLoadImageResized) {
+            if (self.containerSize.width == CGSizeZero.width && self.containerSize.height == CGSizeZero.height) {
+                [self updateOperationStatus];
+                
+                return;
+            }
         }
     }
     
@@ -152,8 +165,10 @@
     
     self.downloadConnection = conn;
     
-    [conn release];
-    [request release];
+    #if !__has_feature(objc_arc)
+        [conn release];
+        [request release];
+    #endif
     
     /** Set the port for the NSRunLoop and start the download connection. */
     if (self.downloadConnection) {
@@ -216,6 +231,9 @@
 }
 
 - (void)updateOperationStatus {
+    /** Reset the delegate. */
+    [self setDelegateView:nil];
+    
     /** Remove the port. */
     [[NSRunLoop currentRunLoop] removePort:self.downloadPort forMode:NSDefaultRunLoopMode];
     
@@ -233,7 +251,7 @@
     @try {
         [self.receivedData setLength:0];
     } @catch (NSException *exception) {
-        [exception logDetailsFailedOnSelector:_cmd line:__LINE__];
+        [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
     }
 }
 
@@ -267,7 +285,7 @@
     
     /** Load the image and store in the cache. */
     if (!self.isCancelled) {
-        [self updateImageViewWithImage:imageContent cache:YES];
+        [self updateDelegateWithImage:imageContent cache:YES];
     }
     
     [self resetData];
@@ -278,17 +296,19 @@
 #pragma mark - NSURLConnectionDelegate
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error {
-    [error logDetailsFailedOnSelector:_cmd line:__LINE__];
+    if (error != nil) {
+        [error logDetailsFailedOnSelector:_cmd line:__LINE__];
+    }
     
     /** Make sure the image is cleared out. */
-    [self updateImageViewWithImage:nil cache:NO];
+    [self updateDelegateWithImage:nil cache:NO];
     [self resetData];
     [self updateOperationStatus];
 }
 
 #pragma mark - Delegate View Callback
 
-- (void)updateImageViewWithImage:(UIImage *)imageContent cache:(BOOL)cacheStore {
+- (void)updateDelegateWithImage:(UIImage *)imageContent cache:(BOOL)cacheStore {
     UIImage *resizedImage = nil;
     
     if (self.isCancelled) {
@@ -319,7 +339,7 @@
         return;
     }
     
-    if (self.shouldLoadImageResized) {
+    if (self.shouldLoadImageResized && imageContent != nil) {
         if (resizedImage == nil) {
             resizedImage = [imageContent resizeToFillSize:self.containerSize];
         }
@@ -358,8 +378,6 @@
                     [self.delegateView processCachedImage:imageContent];
                 } else if ([self.delegateView isKindOfClass:[UIButton class]]) {
                     [self.delegateView setImage:imageContent forState:UIControlStateNormal];
-                    [self.delegateView setImage:imageContent forState:UIControlStateHighlighted];
-                    [self.delegateView setImage:imageContent forState:UIControlStateSelected];
                 } else if ([self.delegateView isKindOfClass:[UIImageView class]]) {
                     [self.delegateView setImage:imageContent];
                 } else {
@@ -372,7 +390,7 @@
             }
         }
     } @catch (NSException *exception) {
-        [exception logDetailsFailedOnSelector:_cmd line:__LINE__];
+        [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
     }
 }
 

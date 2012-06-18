@@ -2,7 +2,7 @@
 //  XAIImageCacheStorage.h
 //  XAIImageCache
 //
-//  Created by Xeon Xai on 4/15/12.
+//  Created by Xeon Xai <xeonxai@me.com> on 4/15/12.
 //  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
 //
 

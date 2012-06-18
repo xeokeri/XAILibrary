@@ -1,27 +1,26 @@
 //
 //  XAICoverFlowPanel.m
-//  CoverFlow
+//  XAICoverFlow
 //
 //  Created by Xeon Xai <xeonxai@me.com> on 3/29/12.
 //  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
 //
 
 #import "XAICoverFlowPanel.h"
+
+/** Quartz Framework */
 #import <QuartzCore/QuartzCore.h>
 
-#import "XAIImageCacheQueue.h"
-#import "XAIImageCacheOperation.h"
+/** XAIImageCache */
+#import "UIScrollView+XAIImageCache.h"
 #import "NSString+XAIImageCache.h"
 #import "UIImage+XAIImageCache.h"
-
-#import "NSException+Customized.h"
 
 @implementation XAICoverFlowPanel
 
 @synthesize panelImageView, reflectionImageView;
 @synthesize reflectionGradient;
 @synthesize loadingIndicator;
-@synthesize cacheOperation;
 
 #pragma mark - Memory Management
 
@@ -109,47 +108,6 @@
     }
     
     return self;
-}
-
-- (void)imageWithURL:(NSString *)url size:(CGSize)imageSize {
-    [[XAIImageCacheQueue sharedQueue] cacheCleanup];
-    
-    /** UIImageView */
-    self.panelImageView.image      = nil;
-    self.reflectionImageView.image = nil;
-    
-    NSString *cacheURL = url;
-    
-    if (imageSize.width != CGSizeZero.width && imageSize.height != CGSizeZero.height) {
-        cacheURL = [url cachedURLForImageSize:imageSize];
-    }
-    
-    UIImage *cachedImage = [UIImage cachedImageForURL:cacheURL];
-    
-    if (cachedImage) {
-        @try {
-            [self processCachedImage:cachedImage];
-        } @catch (NSException *exception) {
-            [exception logDetailsFailedOnSelector:_cmd line:__LINE__];
-        }
-    } else {
-        XAIImageCacheOperation *op = [[XAIImageCacheOperation alloc] initWithURL:url delegate:self size:imageSize];
-        
-        self.cacheOperation = op;
-        
-        [[XAIImageCacheQueue sharedQueue] addOperation:cacheOperation];
-        
-        [op release];
-    }
-}
-
-- (void)removeFromSuperview {
-    if (self.cacheOperation) {
-        [self.cacheOperation setOperationExecuting:YES];
-        [self.cacheOperation cancel];
-    }
-    
-    [super removeFromSuperview];
 }
 
 #pragma mark - XAIImageCache Delegate

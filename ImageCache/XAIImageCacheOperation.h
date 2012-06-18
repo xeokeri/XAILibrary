@@ -2,7 +2,7 @@
 //  XAIImageCacheOperation.h
 //  XAIImageCache
 //
-//  Created by Xeon Xai on 2/24/12.
+//  Created by Xeon Xai <xeonxai@me.com> on 2/24/12.
 //  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
 //
 
@@ -18,6 +18,7 @@
  */
 
 #import <Foundation/Foundation.h>
+#import <CoreGraphics/CGGeometry.h>
 
 typedef enum {
     kXAIImageCacheStatusTypeFinished  = 0,
@@ -30,7 +31,7 @@ typedef enum {
     BOOL operationFinished;
     
     @private
-    id delegateView;
+    id __unsafe_unretained delegateView;
     
     NSMutableData   *receivedData;
     NSString        *downloadURL;
@@ -43,13 +44,13 @@ typedef enum {
     BOOL loadImageResized;
 }
 
-@property (nonatomic, assign) id delegateView;
+@property (nonatomic, unsafe_unretained) id delegateView;
 
-@property (nonatomic, retain) NSMutableData   *receivedData;
-@property (nonatomic, retain) NSString        *downloadURL;
-@property (nonatomic, retain) NSPort          *downloadPort;
-@property (nonatomic, retain) NSURLConnection *downloadConnection;
-@property (nonatomic, retain) NSIndexPath     *containerIndexPath;
+@property (nonatomic, strong) NSMutableData   *receivedData;
+@property (nonatomic, strong) NSString        *downloadURL;
+@property (nonatomic, strong) NSPort          *downloadPort;
+@property (nonatomic, strong) NSURLConnection *downloadConnection;
+@property (nonatomic, strong) NSIndexPath     *containerIndexPath;
 
 @property (nonatomic) CGSize containerSize;
 

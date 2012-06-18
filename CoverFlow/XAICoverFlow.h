@@ -1,6 +1,6 @@
 //
 //  XAICoverFlow.h
-//  CoverFlow
+//  XAICoverFlow
 //
 //  Created by Xeon Xai <xeonxai@me.com> on 3/29/12.
 //  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
@@ -10,28 +10,13 @@
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
 
-#define kXAICoverFlowMotionSpeedUpdateMaximum   180
-#define kXAICoverFlowPanelBufferPadding         3
-#define kXAICoverFlowPanelEndCap                15
-
-#define kXAICoverFlowPanelSpace                 70.0f
-#define kXAICoverFlowPanelSpaceSubdivide        2.4f
-#define kXAICoverFlowPanelAngle                 1.4f
-
-#define kXAICoverFlowPanelAnimationSpeedSlow    0.5f
-#define kXAICoverFlowPanelAnimationSpeedFast    0.2f
-
-#define kXAICoverFlowPanelSizeWidth             224.0f
-#define kXAICoverFlowPanelSizeHeight            224.0f
-
-#define kXAICoverFlowPanelTagPrefix             10000
-
-#define kXAICoverFlowPanelAnimationIdFormat     @"XAICoverFlowAnimationForIndex:%d"
+/** XAIImageCache */
+#import "XAIImageCacheDelegate.h"
 
 @class XAICoverFlowPanel;
 @protocol XAICoverFlowDelegate, XAICoverFlowDataSource;
 
-@interface XAICoverFlow : UIScrollView <UIScrollViewDelegate> {
+@interface XAICoverFlow : UIScrollView <UIScrollViewDelegate, XAIImageCacheDelegate> {
     @private
     id <XAICoverFlowDelegate> coverFlowDelegate;
     id <XAICoverFlowDataSource> coverFlowDataSource;
@@ -82,27 +67,5 @@
 @property (nonatomic, getter = isDirectionOfMovementRight) BOOL directionOfMovementRight;
 
 - (id)initWithFrame:(CGRect)frame delegate:(id)incomingDelegate dataSource:(id)incomingDataSource;
-
-@end
-
-#pragma mark - XAI Library Cover Flow Data Source
-
-@protocol XAICoverFlowDataSource <NSObject>
-
-@optional
-- (NSString *)imageNameForCoverFlowPanelAtIndex:(NSUInteger)idx;
-- (NSString *)urlForCoverFlowPanelAtIndex:(NSUInteger)idx;
-
-@required
-- (NSUInteger)coverFlowNumberOfPanels;
-
-@end
-
-#pragma mark - XAI Library Cover Flow Delegate
-
-@protocol XAICoverFlowDelegate <NSObject>
-
-@required
-- (void)coverPanel:(XAICoverFlowPanel *)coverPanel wasDoubleTappedAtIndex:(NSUInteger)idx;
 
 @end

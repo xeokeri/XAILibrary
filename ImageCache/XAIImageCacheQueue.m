@@ -2,7 +2,7 @@
 //  XAIImageCacheQueue.m
 //  XAIImageCache
 //
-//  Created by Xeon Xai on 3/19/12.
+//  Created by Xeon Xai <xeonxai@me.com> on 3/19/12.
 //  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
 //
 
@@ -11,8 +11,8 @@
 
 #import "XAIImageCacheOperation.h"
 
-#import "NSError+Customized.h"
-#import "NSException+Customized.h"
+#import "NSError+XAILogging.h"
+#import "NSException+XAILogging.h"
 
 @implementation XAIImageCacheQueue
 
@@ -114,7 +114,7 @@
             }
         }
     } @catch (NSException *exception) {
-        [exception logDetailsFailedOnSelector:_cmd line:__LINE__];
+        [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
     } @finally {
         [defaults setObject:[NSDate date] forKey:kXAIImageCacheFlushPerformed];
     }
@@ -134,7 +134,7 @@
                         }
                     }
                 } @catch (NSException *exception) {
-                    [exception logDetailsFailedOnSelector:_cmd line:__LINE__];
+                    [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
                 }
             }
         }
@@ -148,7 +148,7 @@
                 [self.urlList removeObject:url];
             }
         } @catch (NSException *exception) {
-            [exception logDetailsFailedOnSelector:_cmd line:__LINE__];
+            [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
         }
     }
 }

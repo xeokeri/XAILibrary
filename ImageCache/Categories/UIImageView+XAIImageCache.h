@@ -2,7 +2,7 @@
 //  UIImageView+XAIImageCache.h
 //  XAIImageCache
 //
-//  Created by Xeon Xai on 2/24/12.
+//  Created by Xeon Xai <xeonxai@me.com> on 2/24/12.
 //  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
 //
 

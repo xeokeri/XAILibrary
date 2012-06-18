@@ -1,0 +1,37 @@
+//
+//  NSError+XAILogging.m
+//  XAILibrary Category
+//
+//  Created by Xeon Xai <xeonxai@me.com> on 3/16/12.
+//  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
+//
+
+#import "NSError+XAILogging.h"
+#import <CoreData/CoreData.h>
+
+@implementation NSError (XAILogging)
+
+#pragma mark - Error Logging
+
+- (void)logDetailsFailedOnSelector:(SEL)failedSelector line:(NSUInteger)lineNumber {
+    NSArray *detailedErrors = [[self userInfo] objectForKey:NSDetailedErrorsKey];
+    NSArray *conflictErrors = [[self userInfo] objectForKey:NSPersistentStoreSaveConflictsErrorKey];
+    
+    for (NSError *detailedError in detailedErrors) {
+        if (kLogErrorDebugging) {
+            NSLog(@"Error on %@: %@", [[detailedError userInfo] valueForKey:NSValidationKeyErrorKey], [[detailedError userInfo] valueForKey:NSValidationObjectErrorKey]);
+        }
+    }
+    
+    for (NSMergeConflict *conflictError in conflictErrors) {
+        if (kLogErrorDebugging) {
+            NSLog(@"Conflict: %@", [conflictError description]);
+        }
+    }
+    
+    if (kLogErrorDebugging) {
+        NSLog(@"%@, Line %d, %@", NSStringFromSelector(failedSelector), lineNumber, [self localizedDescription]);
+    }
+}
+
+@end
