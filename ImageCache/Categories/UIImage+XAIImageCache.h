@@ -12,19 +12,18 @@
 
 @interface UIImage (XAIImageCache)
 
-/** XAIImageCache Image Checking */
+/** XAIImageCache Image Checking. */
 + (UIImage *)cachedImageForURL:(NSString *)imageURL;
 
-/** UIImage Crop */
+/** UIImage Crop. */
 - (UIImage *)cropInRect:(CGRect)rect;
 - (UIImage *)cropInCenterForSize:(CGSize)size;
 - (UIImage *)cropInCenterForSize:(CGSize)size withScaling:(BOOL)scaling;
 
-/** UIImage Resize */
+/** UIImage Resize. */
 - (UIImage *)resizeToFillThenCropToSize:(CGSize)size;
 - (UIImage *)resizeToFillSize:(CGSize)size;
 
-/** UIImage Slice */
-- (NSArray *)sliceIntoNumberOfPieces:(NSUInteger)pieces withCacheURLPrefix:(NSString *)prefix;
-
+/** UIImage Tile Crop */
+- (void)cropIntoTilesWithSize:(CGSize)tileSize withCacheURLPrefix:(NSString *)prefix;
 @end

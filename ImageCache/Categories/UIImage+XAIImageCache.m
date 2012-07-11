@@ -12,18 +12,42 @@
 
 #import "XAIImageCacheStorage.h"
 
+/** XAILogging */
+#import "NSError+XAILogging.h"
+
 @implementation UIImage (XAIImageCache)
 
 + (UIImage *)cachedImageForURL:(NSString *)imageURL {
-    NSArray *cachePath  = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
-    NSString *imagePath = [[cachePath lastObject] stringByAppendingPathComponent:[NSString stringWithFormat:kXAIImageCacheFileNamePath, kXAIImageCacheDirectoryPath, [imageURL md5HexEncode]]];
-    NSData *imageData   = [NSData dataWithContentsOfFile:imagePath];
+    NSError *error       = nil;
+    NSArray *cachePath   = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
+    NSString *imagePath  = [[cachePath lastObject] stringByAppendingPathComponent:[NSString stringWithFormat:kXAIImageCacheFileNamePath, kXAIImageCacheDirectoryPath, [imageURL md5HexEncode]]];
+    NSData *imageData    = [NSData dataWithContentsOfFile:imagePath options:NSDataReadingMappedIfSafe error:&error];
+    
+    if (error != nil) {
+        switch ([error code]) {
+            case NSFileReadNoSuchFileError: {
+                if (kXAIImageCacheDebuggingMode && kXAIImageCacheDebuggingLevel >= 1) {
+                    NSLog(@"File not found for cache URL: %@", imageURL);
+                }
+            }
+                
+                break;
+                
+            default: {
+                [error logDetailsFailedOnSelector:_cmd line:__LINE__];
+            }
+                
+                break;
+        }
+        
+        return nil;
+    }
     
     return [UIImage imageWithData:imageData];
 }
 
 - (UIImage *)cropInRect:(CGRect)rect {
-    CGImageRef referenceImage = CGImageCreateWithImageInRect([self CGImage], rect);
+    CGImageRef referenceImage = CGImageCreateWithImageInRect(self.CGImage, rect);
     UIImage *croppedImage     = [UIImage imageWithCGImage:referenceImage];
     
     CGImageRelease(referenceImage);
@@ -53,6 +77,51 @@
     }
     
     return [self cropInRect:rect];
+}
+
+- (void)cropIntoTilesWithSize:(CGSize)tileSize withCacheURLPrefix:(NSString *)prefix {
+    NSDate *startDate;
+    
+    if (kXAIImageCacheDebuggingMode && kXAIImageCacheDebuggingLevel >= 1) {
+        startDate = [NSDate date];
+    }
+    
+    NSUInteger
+        rows    = ceil(self.size.height / tileSize.height),
+        columns = ceilf(self.size.width / tileSize.width);
+    
+    for (NSUInteger x = 0; x < columns; x++) {
+        for (NSUInteger y = 0; y < rows; y++) {
+            CGFloat
+                xAxis  = floorf(x * tileSize.width),
+                yAxis  = floorf(y * tileSize.height),
+                width  = floorf(tileSize.width - MAX(((xAxis + tileSize.width) - self.size.width), 0.0f)),
+                height = floorf(tileSize.height - MAX(((yAxis + tileSize.height) - self.size.height), 0.0f));
+            
+            if (width == 0.0f || height == 0.0f) {
+                continue;
+            }
+            
+            CGRect sliceFrame  = CGRectMake(xAxis, yAxis, width, height);
+            NSString *sliceURL = [prefix cachedURLForImageRect:sliceFrame];
+            
+            if (![UIImage cachedImageForURL:sliceURL]) {
+                /** Crop the image slice. */
+                UIImage *slicedImage = [self cropInRect:sliceFrame];
+                
+                /** Save slice to image cache. */
+                [[XAIImageCacheStorage sharedStorage] saveImage:slicedImage forURL:sliceURL];
+            }
+        }
+    }
+    
+    if (kXAIImageCacheDebuggingMode && kXAIImageCacheDebuggingLevel >= 1) {
+        NSTimeInterval timeSince = [[NSDate date] timeIntervalSinceDate:startDate];
+        
+        NSLog(@"Time: %f for %s", timeSince, __PRETTY_FUNCTION__);
+    }
+    
+    startDate = nil;
 }
 
 - (UIImage *)resizeToFillThenCropToSize:(CGSize)size {
@@ -91,90 +160,6 @@
     UIGraphicsEndImageContext();
     
     return resizedImage;
-}
-
-- (NSArray *)sliceIntoNumberOfPieces:(NSUInteger)pieces withCacheURLPrefix:(NSString *)prefix {
-    NSDate *startDate      = [NSDate date];
-    NSMutableArray *panels = [NSMutableArray arrayWithCapacity:pieces];
-    
-    CGFloat
-        square      = floorf(sqrtf((float) pieces)),
-        imageWidth  = floorf(self.size.width),
-        imageHeight = floorf(self.size.height),
-        maxWidth    = floorf(self.size.width),
-        maxHeight   = floorf(self.size.height);
-    
-    if (((int) imageHeight) % 2 == 1) {
-        imageHeight += 1;
-    }
-    
-    if (floorf(imageHeight / square) != (imageHeight / square)) {
-        imageHeight += 2.0f;
-    }
-    
-    CGFloat
-        pixelsForImage = floorf(imageWidth * imageHeight),
-        pixelsPerPanel = (pixelsForImage / square),
-        width  = (pixelsPerPanel / imageHeight),
-        height = (pixelsPerPanel / imageWidth),
-        xAxis  = 0.0f,
-        yAxis  = 0.0f;
-    
-    
-    if (kXAIImageCacheSliceDebugging) {
-        NSLog(@"Pieces: %d, Square: %f, Width: %f, Height: %f", pieces, square, width, height);
-    }
-    
-    NSUInteger maxPanelsPerRow = (NSUInteger) square;
-    
-    
-    for (NSUInteger i = 0; i < pieces; i++) {
-        CGFloat
-            frameWidth  = width,
-            frameHeight = height;
-        
-        if (i > 0) {
-            if (i % maxPanelsPerRow == 0) {
-                yAxis += height;
-            }
-            
-            xAxis += width;
-            
-            if (xAxis >= floorf(width * maxPanelsPerRow)) {
-                xAxis = 0.0f;
-            }
-        }
-        
-        if ((xAxis + width) > maxWidth) {
-            frameWidth -= floorf((xAxis + width) - maxWidth);
-        }
-        
-        if ((yAxis + frameHeight) > maxHeight) {
-            frameHeight -= floorf((yAxis + height) - maxHeight);
-        }
-        
-        CGRect sliceFrame  = CGRectMake(xAxis, yAxis, frameWidth, frameHeight);
-        NSString *sliceURL = [prefix cachedURLForImageRect:sliceFrame];
-        
-        if (![UIImage cachedImageForURL:sliceURL]) {
-            /** Crop the image slice. */
-            UIImage *slicedImage = [self cropInRect:sliceFrame];
-            
-            /** Save slice to image cache. */
-            [[XAIImageCacheStorage sharedStorage] saveImage:slicedImage forURL:sliceURL];
-        }
-        
-        /** Add cache URL. */
-        [panels addObject:sliceURL];
-    }
-    
-    if (kXAIImageCacheSliceDebugging) {
-        NSTimeInterval timeSince = [[NSDate date] timeIntervalSinceDate:startDate];
-        
-        NSLog(@"Time: %f for %s", timeSince, __PRETTY_FUNCTION__);
-    }
-    
-    return [NSArray arrayWithArray:panels];
 }
 
 @end

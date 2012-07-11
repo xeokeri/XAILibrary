@@ -6,13 +6,13 @@
 //  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
 //
 
-#import "XAIImageCacheQueue.h"
-#import "XAIImageCacheOperation.h"
-#import "XAIImageCacheDelegate.h"
-
 #import "UIButton+XAIImageCache.h"
 #import "UIImage+XAIImageCache.h"
 #import "NSString+XAIImageCache.h"
+
+#import "XAIImageCacheQueue.h"
+#import "XAIImageCacheOperation.h"
+#import "XAIImageCacheDelegate.h"
 
 #import "NSException+XAILogging.h"
 
@@ -46,7 +46,15 @@
     
     [self setAdjustsImageWhenHighlighted:YES];
     
-    NSString *cacheURL   = (resizeImage) ? [url cachedURLForImageSize:self.frame.size] : url;
+    CGSize cacheSize   = self.frame.size;
+    CGFloat cacheScale = [[UIScreen mainScreen] scale];
+    
+    if (cacheScale > 1.0f) {
+        cacheSize.width  = floorf(cacheSize.width * cacheScale);
+        cacheSize.height = floorf(cacheSize.height * cacheScale);
+    }
+    
+    NSString *cacheURL   = (resizeImage) ? [url cachedURLForImageSize:cacheSize] : url;
     UIImage *cachedImage = [UIImage cachedImageForURL:cacheURL];
     
     if (cachedImage) {

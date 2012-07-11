@@ -14,17 +14,17 @@
 #pragma mark - Exception Logging
 
 - (void)logDetailsFailedOnSelector:(SEL)failedSelector line:(NSUInteger)lineNumber onClass:(NSString *)exceptionOnClass {
+    if (!kLogExceptionDebugging) {
+        return;
+    }
+    
     NSArray *exceptions = [[self userInfo] objectForKey:NSDetailedErrorsKey];
     
     for (NSError *detailedException in exceptions) {
-        if (kLogExceptionDebugging) {
-            NSLog(@"Exception: %@, %@, Line %d, %@", exceptionOnClass, NSStringFromSelector(failedSelector), lineNumber, [[detailedException userInfo] valueForKey:NSValidationKeyErrorKey]);
-        }
+        NSLog(@"Exception: %@, %@, Line %d, %@", exceptionOnClass, NSStringFromSelector(failedSelector), lineNumber, [[detailedException userInfo] valueForKey:NSValidationKeyErrorKey]);
     }
     
-    if (kLogExceptionDebugging) {
-        NSLog(@"Exception: %@, %@, Line %d, %@", exceptionOnClass, NSStringFromSelector(failedSelector), lineNumber, [self reason]);
-    }
+    NSLog(@"Exception: %@, %@, Line %d, %@\n %@", exceptionOnClass, NSStringFromSelector(failedSelector), lineNumber, [self reason], [self callStackSymbols]);
 }
 
 @end

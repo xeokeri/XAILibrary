@@ -14,23 +14,26 @@
 #pragma mark - Error Logging
 
 - (void)logDetailsFailedOnSelector:(SEL)failedSelector line:(NSUInteger)lineNumber {
-    NSArray *detailedErrors = [[self userInfo] objectForKey:NSDetailedErrorsKey];
-    NSArray *conflictErrors = [[self userInfo] objectForKey:NSPersistentStoreSaveConflictsErrorKey];
+    if (!kLogErrorDebugging) {
+        return;
+    }
+    
+    NSArray *detailedErrors      = [[self userInfo] objectForKey:NSDetailedErrorsKey];
+    NSArray *conflictErrors      = [[self userInfo] objectForKey:NSPersistentStoreSaveConflictsErrorKey];
+    NSString *validationErrorKey = [[self userInfo] objectForKey:NSValidationKeyErrorKey];
+    
+    NSLog(@"Error: %@, Line %d, %@", NSStringFromSelector(failedSelector), lineNumber, [self localizedDescription]);
+    
+    if (validationErrorKey) {
+        NSLog(@"Validation Error for key: %@\n%@", validationErrorKey, [[self userInfo] objectForKey:NSValidationObjectErrorKey]);
+    }
     
     for (NSError *detailedError in detailedErrors) {
-        if (kLogErrorDebugging) {
-            NSLog(@"Error on %@: %@", [[detailedError userInfo] valueForKey:NSValidationKeyErrorKey], [[detailedError userInfo] valueForKey:NSValidationObjectErrorKey]);
-        }
+        NSLog(@"Error on %@: %@", [[detailedError userInfo] valueForKey:NSValidationKeyErrorKey], [[detailedError userInfo] valueForKey:NSValidationObjectErrorKey]);
     }
     
     for (NSMergeConflict *conflictError in conflictErrors) {
-        if (kLogErrorDebugging) {
-            NSLog(@"Conflict: %@", [conflictError description]);
-        }
-    }
-    
-    if (kLogErrorDebugging) {
-        NSLog(@"%@, Line %d, %@", NSStringFromSelector(failedSelector), lineNumber, [self localizedDescription]);
+        NSLog(@"Conflict: %@", [conflictError description]);
     }
 }
 

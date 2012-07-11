@@ -42,7 +42,15 @@
 - (void)imageWithURL:(NSString *)url resize:(BOOL)resizeImage {
     [[XAIImageCacheQueue sharedQueue] cacheCleanup];
     
-    NSString *cacheURL   = (resizeImage) ? [url cachedURLForImageSize:self.frame.size] : url;
+    CGSize cacheSize   = self.frame.size;
+    CGFloat cacheScale = [[UIScreen mainScreen] scale];
+    
+    if (cacheScale > 1.0f) {
+        cacheSize.width  = floorf(cacheSize.width * cacheScale);
+        cacheSize.height = floorf(cacheSize.height * cacheScale);
+    }
+    
+    NSString *cacheURL   = (resizeImage) ? [url cachedURLForImageSize:cacheSize] : url;
     UIImage *cachedImage = [UIImage cachedImageForURL:cacheURL];
     
     if (cachedImage) {

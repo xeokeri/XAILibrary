@@ -283,8 +283,10 @@
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection {
     UIImage *imageContent = [self dataAsUIImage];
     
-    /** Load the image and store in the cache. */
-    if (!self.isCancelled) {
+    if (self.isCancelled) {
+        [self setDelegateView:nil];
+    } else {
+        /** Load the image and store in the cache. */
         [self updateDelegateWithImage:imageContent cache:YES];
     }
     
@@ -300,8 +302,13 @@
         [error logDetailsFailedOnSelector:_cmd line:__LINE__];
     }
     
-    /** Make sure the image is cleared out. */
-    [self updateDelegateWithImage:nil cache:NO];
+    if (self.isCancelled) {
+        [self setDelegateView:nil];
+    } else {
+        /** Make sure the image is cleared out. */
+        [self updateDelegateWithImage:nil cache:NO];
+    }
+    
     [self resetData];
     [self updateOperationStatus];
 }
@@ -317,7 +324,7 @@
         return;
     }
     
-    if (cacheStore == YES) {
+    if (cacheStore == YES && imageContent != nil) {
         [[XAIImageCacheStorage sharedStorage] saveImage:imageContent forURL:self.downloadURL];
         
         NSString *cachedURL = [self.downloadURL cachedURLForImageSize:self.containerSize];
@@ -335,7 +342,9 @@
         }
     }
     
-    if (!self.delegateView) {
+    if (self.isCancelled) {
+        self.delegateView = nil;
+        
         return;
     }
     
@@ -348,6 +357,8 @@
     }
     
     if (self.isCancelled) {
+        self.delegateView = nil;
+        
         [self updateOperationStatus];
         
         return;
@@ -355,6 +366,8 @@
     
     @try {
         if (self.isCancelled) {
+            self.delegateView = nil;
+            
             [self updateOperationStatus];
             
             return;
@@ -363,6 +376,7 @@
         if (self.delegateView) {
             if (self.isCancelled) {
                 [self updateOperationStatus];
+                
                 return;
             }
             

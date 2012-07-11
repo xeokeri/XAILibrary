@@ -126,15 +126,31 @@
             NSString *operationURL = ((XAIImageCacheOperation *)op).downloadURL;
             
             if (operationURL.length > 0) {
+                BOOL shouldAddOperation = NO;
+                
                 @try {
                     if  (![self.urlList containsObject:operationURL]) {
                         if (op) {
-                            [self.urlList addObject:operationURL];
-                            [super addOperation:op];
+                            shouldAddOperation = YES;
+                        }
+                    } else {
+                        for (NSOperation *pendingOp in [self operations]) {
+                            if ([pendingOp isCancelled] && [pendingOp isKindOfClass:[XAIImageCacheOperation class]]) {
+                                NSString *pendingURL = ((XAIImageCacheOperation *)op).downloadURL;
+                                
+                                if (pendingOp && [pendingURL isEqualToString:operationURL]) {
+                                    shouldAddOperation = YES;
+                                }
+                            }
                         }
                     }
                 } @catch (NSException *exception) {
                     [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
+                } @finally {
+                    if (shouldAddOperation) {
+                        [self.urlList addObject:operationURL];
+                        [super addOperation:op];
+                    }
                 }
             }
         }
@@ -151,6 +167,35 @@
             [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
         }
     }
+}
+
+- (void)cancelOperationForURL:(NSString *)url {
+    @try {
+        for (NSOperation *op in self.operations) {
+            if ([op isKindOfClass:[XAIImageCacheOperation class]]) {
+                NSString *operationURL = ((XAIImageCacheOperation *)op).downloadURL;
+                
+                if ([operationURL isEqualToString:url]) {
+                    [op cancel];
+                    
+                    [self removeURL:url];
+                }
+            }
+        }
+    } @catch (NSException *exception) {
+        [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
+    }
+}
+
+- (void)cancelAllOperations {
+    /** Set all the delegate views to nil. */
+    for (NSOperation *op in [self operations]) {
+        if ([op isKindOfClass:[XAIImageCacheOperation class]]) {
+            [((XAIImageCacheOperation *) op) setDelegateView:nil];
+        }
+    }
+    
+    [super cancelAllOperations];
 }
 
 @end

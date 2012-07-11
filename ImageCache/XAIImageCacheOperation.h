@@ -26,13 +26,13 @@ typedef enum {
 } XAIImageCacheStatusType;
 
 @interface XAIImageCacheOperation : NSOperation <NSURLConnectionDataDelegate> {
+    id __unsafe_unretained delegateView;
+    
     @protected
     BOOL operationExecuting;
     BOOL operationFinished;
     
     @private
-    id __unsafe_unretained delegateView;
-    
     NSMutableData   *receivedData;
     NSString        *downloadURL;
     NSPort          *downloadPort;

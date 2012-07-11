@@ -19,5 +19,7 @@
 #define kXAIImageCacheDirectoryPath     @"ImageCache"
 #define kXAIImageCacheFileNamePath      @"%@/%@.png"
 
-/** BOOL */
-#define kXAIImageCacheSliceDebugging    YES
+/** Debugging */
+#define kXAIImageCacheDebuggingMode     NO
+#define kXAIImageCacheDebuggingLevel    0
+
