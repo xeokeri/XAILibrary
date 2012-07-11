@@ -18,7 +18,7 @@
 
 @interface XAICoverFlow : UIScrollView <UIScrollViewDelegate, XAIImageCacheDelegate> {
     @private
-    id <XAICoverFlowDelegate> coverFlowDelegate;
+    id <XAICoverFlowDelegate> __unsafe_unretained coverFlowDelegate;
     id <XAICoverFlowDataSource> coverFlowDataSource;
     
     CATransform3D leftSideTransform;
@@ -38,17 +38,17 @@
     
     UIView *touchedView;
     
-    NSMutableArray *coverFlowViews;
-    NSMutableArray *views;
-    NSMutableArray *coverPanelQueue;
+    NSMutableArray *panelPlaceholders;
+    NSMutableArray *panelViews;
+    NSMutableSet   *panelQueue;
     
     NSRange coverPanelRange;
     
     BOOL directionOfMovementRight;
 }
 
-@property (nonatomic, assign) id <XAICoverFlowDelegate> coverFlowDelegate;
-@property (nonatomic, retain) id <XAICoverFlowDataSource> coverFlowDataSource;
+@property (nonatomic, unsafe_unretained) id <XAICoverFlowDelegate> coverFlowDelegate;
+@property (nonatomic, strong) id <XAICoverFlowDataSource> coverFlowDataSource;
 @property (nonatomic) CATransform3D leftSideTransform;
 @property (nonatomic) CATransform3D rightSideTransform;
 @property (nonatomic) CGSize coverPanelSize;
@@ -59,10 +59,10 @@
 @property (nonatomic) NSInteger motionSpeed;
 @property (nonatomic) NSUInteger numberOfPanels;
 @property (nonatomic) NSUInteger coverPanelBuffer;
-@property (nonatomic, retain) IBOutlet UIView *touchedView;
-@property (nonatomic, retain) NSMutableArray *coverFlowViews;
-@property (nonatomic, retain) NSMutableArray *views;
-@property (nonatomic, retain) NSMutableArray *coverPanelQueue;
+@property (nonatomic, strong) IBOutlet UIView *touchedView;
+@property (nonatomic, strong) NSMutableArray *panelPlaceholders;
+@property (nonatomic, strong) NSMutableArray *panelViews; /** @todo fix name. */
+@property (nonatomic, strong) NSMutableSet *panelQueue;
 @property (nonatomic) NSRange coverPanelRange;
 @property (nonatomic, getter = isDirectionOfMovementRight) BOOL directionOfMovementRight;
 

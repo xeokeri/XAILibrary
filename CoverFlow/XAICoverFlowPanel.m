@@ -25,12 +25,21 @@
 #pragma mark - Memory Management
 
 - (void)dealloc {
-    [panelImageView release], panelImageView = nil;
-    [reflectionImageView release], reflectionImageView = nil;
-    [reflectionGradient release], reflectionGradient = nil;
-    [loadingIndicator release], loadingIndicator = nil;
+    #if !__has_feature(objc_arc)
+        [panelImageView release], 
+        [reflectionImageView release];
+        [reflectionGradient release];
+        [loadingIndicator release];
+    #endif
     
-    [super dealloc];
+    panelImageView = nil;
+    reflectionImageView = nil;
+    reflectionGradient = nil;
+    loadingIndicator = nil;
+    
+    #if !__has_feature(objc_arc)
+        [super dealloc];
+    #endif
 }
 
 #pragma mark - Init
@@ -58,7 +67,9 @@
             
             [self addSubview:self.panelImageView];
             
-            [imageView release];
+            #if !__has_feature(objc_arc)
+                [imageView release];
+            #endif
         }
         
         { /** Activity Indicator */
@@ -72,7 +83,9 @@
             
             self.loadingIndicator = indicatorView;
             
-            [indicatorView release];
+            #if !__has_feature(objc_arc)
+                [indicatorView release];
+            #endif
             
             [self addSubview:self.loadingIndicator];
         }
@@ -88,7 +101,9 @@
             
             [self addSubview:self.reflectionImageView];
             
-            [reflection release];
+            #if !__has_feature(objc_arc)
+                [reflection release];
+            #endif
         }
        
         { /** Gradient */
@@ -113,6 +128,12 @@
 #pragma mark - XAIImageCache Delegate
 
 - (void)processCachedImage:(UIImage *)image {
+    if (image == nil) {
+        [self.loadingIndicator stopAnimating];
+        
+        return;
+    }
+    
     CGFloat
         baseline = self.bounds.size.height,
         width    = image.size.width,
@@ -134,15 +155,15 @@
     [UIView setAnimationDidStopSelector:@selector(coverFlowPanelAnimationDidEnd:finished:context:)];
     
     /** Update the cover panel UIImageView. */
-    self.panelImageView.image = image;
-    self.panelImageView.frame = imageFrame;
+    [self.panelImageView setFrame:imageFrame];
+    [self.panelImageView setImage:image];
     
     /** Update the reflection UIImageView */
-    self.reflectionImageView.frame = reflectFrame;
-    self.reflectionImageView.image = image;
+    [self.reflectionImageView setFrame:reflectFrame];
+    [self.reflectionImageView setImage:image];
     
     /** Update the reflection gradient. */
-    self.reflectionGradient.frame = reflectFrame;
+    [self.reflectionGradient setFrame:reflectFrame];
     
     [UIView commitAnimations];
 }

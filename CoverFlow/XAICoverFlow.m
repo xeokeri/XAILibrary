@@ -15,11 +15,14 @@
 #import "XAICoverFlowDataSource.h"
 
 /** XAIImageCache */
+#import "XAIImageCacheQueue.h"
 #import "UIScrollView+XAIImageCache.h"
 
 @interface XAICoverFlow()
 
 - (XAICoverFlowPanel *)coverPanelAtIndex:(NSUInteger)idx;
+
+- (CGRect)frameForPanelAtIndex:(NSUInteger)idx;
 
 - (void)updateAllCoverPanels;
 - (void)configureTransformations;
@@ -35,11 +38,13 @@
 
 @implementation XAICoverFlow
 
-@synthesize coverFlowDelegate, coverFlowDataSource;
+@synthesize coverFlowDelegate   = __coverFlowDelegate;
+@synthesize coverFlowDataSource = __coverFlowDataSource;
+
 @synthesize coverPanelAngle, coverPanelSize, coverPanelSpace;
 @synthesize leftSideTransform, rightSideTransform;
 @synthesize numberOfPanels, lastIndex, lastPosition, motionSpeed, coverPanelBuffer;
-@synthesize touchedView, coverFlowViews, views, coverPanelQueue, coverPanelRange;
+@synthesize touchedView, panelPlaceholders, panelViews, panelQueue, coverPanelRange;
 
 @synthesize directionOfMovementRight;
 
@@ -47,13 +52,29 @@
 
 - (void)dealloc {
     coverFlowDelegate = nil;
-    [coverFlowDataSource release], coverFlowDataSource = nil;
-    [touchedView release], touchedView = nil;
-    [coverFlowViews release], coverFlowViews = nil;
-    [views release], views = nil;
-    [coverPanelQueue release], coverPanelQueue = nil;
     
-    [super dealloc];
+    #if !__has_feature(objc_arc)
+        [coverFlowDataSource release];
+        [touchedView release];
+        [panelPlaceholders release];
+        [panelViews release];
+        [panelQueue release];
+    #endif
+    
+    coverFlowDelegate = nil;
+    coverFlowDataSource = nil;
+    touchedView = nil;
+    panelPlaceholders = nil;
+    panelViews = nil;
+    panelQueue = nil;
+
+    #if !__has_feature(objc_arc)
+        [super dealloc];
+    #endif
+}
+
+- (void)viewDidUnload {
+    self.touchedView = nil;
 }
 
 #pragma mark - Init
@@ -87,10 +108,10 @@
         /** UIScrollView Delegate */
         self.delegate = self;
         
-        /** Initialize the arrays. */
-        self.coverFlowViews  = [NSMutableArray array];
-        self.views           = [NSMutableArray array];
-        self.coverPanelQueue = [NSMutableArray array];
+        /** Initialize the arrays and sets. */
+        self.panelPlaceholders = [NSMutableArray arrayWithCapacity:0];
+        self.panelViews        = [NSMutableArray arrayWithCapacity:0];
+        self.panelQueue        = [NSMutableSet setWithCapacity:0];
         
         /** Set the default colors. */
         self.backgroundColor = [UIColor clearColor];
@@ -124,7 +145,7 @@
     self.coverPanelBuffer = (NSUInteger) abs(((self.frame.size.width - self.coverPanelSize.width) / self.coverPanelSpace) + kXAICoverFlowPanelBufferPadding);
 
     for (NSUInteger i = 0; i < self.numberOfPanels; i++) {
-        [self.coverFlowViews addObject:[NSNull null]];
+        [self.panelPlaceholders addObject:[NSNull null]];
     }
     
     [self configureCoverPanelRange];
@@ -258,7 +279,7 @@
 - (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event {
     UITouch *touch = [touches anyObject];
     
-    if ([touch.view isEqual:self.touchedView]) {
+    if ([touch.view isEqual:self.touchedView] && [touch.view isKindOfClass:[XAICoverFlowPanel class]]) {
         NSUInteger idx = (NSUInteger) abs(self.touchedView.tag - kXAICoverFlowPanelTagPrefix);
         
         if (touch.tapCount > 1 && self.lastIndex == idx) {
@@ -316,20 +337,19 @@
         [UIView setAnimationDidStopSelector:@selector(coverFlowPanelAnimationDidEnd:finished:context:)];
     }
     
-    for (UIView *subView in self.views) {
-        
-        if (![subView isKindOfClass:[XAICoverFlowPanel class]]) {
+    for (UIView *panel in self.panelViews) {
+        if (![panel isKindOfClass:[XAICoverFlowPanel class]]) {
             continue;
         }
         
-        NSInteger viewTag = subView.tag;
+        NSInteger viewTag = panel.tag;
         
         if (viewTag < currentTag) {
-            subView.layer.transform = self.leftSideTransform;
+            panel.layer.transform = self.leftSideTransform;
         } else if (viewTag > currentTag) {
-            subView.layer.transform = self.rightSideTransform;
+            panel.layer.transform = self.rightSideTransform;
         } else {
-            subView.layer.transform = CATransform3DIdentity;
+            panel.layer.transform = CATransform3DIdentity;
         }
     }
     
@@ -341,7 +361,7 @@
 - (void)jumpToCurrentCoverPanelAnimated:(BOOL)animated {
     CGPoint offsetPoint = CGPointZero;
 
-    UIView *currentPanel = [self.coverFlowViews objectAtIndex:self.lastIndex];
+    UIView *currentPanel = [self.panelPlaceholders objectAtIndex:self.lastIndex];
     
     if (currentPanel == nil) {
         return;
@@ -357,7 +377,7 @@
 }
 
 - (void)updateAllCoverPanels {
-    for (UIView *panel in self.coverFlowViews) {
+    for (UIView *panel in self.panelPlaceholders) {
         if ([panel isKindOfClass:[XAICoverFlowPanel class]]) {
             NSUInteger currentIndex = (panel.tag - kXAICoverFlowPanelTagPrefix);
             
@@ -377,18 +397,26 @@
 
     for (NSUInteger i = from; i < to; i++) {
         
-        if (i >= [self.coverFlowViews count]) {
+        if (i >= [self.panelPlaceholders count]) {
             break;
         }
         
-        if ([self.coverFlowViews objectAtIndex:i] != [NSNull null]) {
-            XAICoverFlowPanel *panel = [self.coverFlowViews objectAtIndex:i];
+        if ([self.panelPlaceholders objectAtIndex:i] != [NSNull null]) {
+            XAICoverFlowPanel *panel = [self.panelPlaceholders objectAtIndex:i];
+            
+            if ([self.coverFlowDataSource respondsToSelector:@selector(urlForCoverFlowPanelAtIndex:)]) {
+                NSString *urlForPanel = [self.coverFlowDataSource urlForCoverFlowPanelAtIndex:i];
+                
+                if (urlForPanel.length > 0) {
+                    [[XAIImageCacheQueue sharedQueue] cancelOperationForURL:urlForPanel];
+                }
+            }
             
             [panel removeFromSuperview];
             
-            [self.views removeObject:panel];
-            [self.coverPanelQueue addObject:panel];
-            [self.coverFlowViews replaceObjectAtIndex:i withObject:[NSNull null]];
+            [self.panelViews removeObject:panel];
+            [self.panelQueue addObject:panel];
+            [self.panelPlaceholders replaceObjectAtIndex:i withObject:[NSNull null]];
         }
     }
 }
@@ -399,21 +427,33 @@
     }
     
     for (NSUInteger i = from; i < to; i++) {
-        if (i >= [self.coverFlowViews count]) {
+        if (i >= [self.panelPlaceholders count]) {
             break;
         }
         
-        if ([self.coverFlowViews objectAtIndex:i] == [NSNull null]) {
+        if ([self.panelPlaceholders objectAtIndex:i] == [NSNull null]) {
             XAICoverFlowPanel *panel = [self coverPanelAtIndex:i];
+            NSUInteger panelTag      = abs(kXAICoverFlowPanelTagPrefix + i);
+            CGRect panelFrame        = [self frameForPanelAtIndex:i];
             
-            [self.coverFlowViews replaceObjectAtIndex:i withObject:panel];
+            [panel setFrame:panelFrame];
+            [panel setTag:panelTag];
+            
+            [self.panelPlaceholders replaceObjectAtIndex:i withObject:panel];
             [self addSubview:panel];
             
             if ([self.coverFlowDataSource respondsToSelector:@selector(urlForCoverFlowPanelAtIndex:)]) {
-                NSString *imageURL = [self.coverFlowDataSource urlForCoverFlowPanelAtIndex:i];
+                NSString *imageURL     = [self.coverFlowDataSource urlForCoverFlowPanelAtIndex:i];
                 NSIndexPath *indexPath = [NSIndexPath indexPathForRow:i inSection:0];
+                CGFloat cacheScale     = [[UIScreen mainScreen] scale];
+                CGSize cacheSize       = self.coverPanelSize;
                 
-                [self imageWithURL:imageURL atIndexPath:indexPath delegate:self size:self.coverPanelSize];
+                if (cacheScale > 1.0f) {
+                    cacheSize.width  = floorf(cacheSize.width * cacheScale);
+                    cacheSize.height = floorf(cacheSize.height * cacheScale);
+                }
+                
+                [self imageWithURL:imageURL atIndexPath:indexPath delegate:self size:cacheSize];
             } else if ([self.coverFlowDataSource respondsToSelector:@selector(imageNameForCoverFlowPanelAtIndex:)]) {
                 NSString *imageName = [self.coverFlowDataSource urlForCoverFlowPanelAtIndex:i];
                 UIImage *panelImage = [UIImage imageNamed:imageName];
@@ -429,32 +469,62 @@
                 panel.layer.transform = leftSideTransform;
             }
             
-            [self.views addObject:panel];
+            [self.panelViews addObject:panel];
         }
     }
+}
+
+#pragma mark - CGRect
+
+- (CGRect)frameForPanelAtIndex:(NSUInteger)idx {
+    CGFloat
+        width   = self.coverPanelSize.width,
+        height  = self.coverPanelSize.height,
+        xOffset = floorf(((self.frame.size.width * 0.5f) - (width * 0.5f)) + fabsf(self.coverPanelSpace * idx)),
+        yOffset = floorf((self.frame.size.height * 0.5f) - (height * 0.5f));
+    
+    return CGRectMake(xOffset, yOffset, width, height);
 }
 
 #pragma mark - XAICoverFlowPanel View
 
 - (XAICoverFlowPanel *)coverPanelAtIndex:(NSUInteger)idx {
-    if ([[self.coverFlowViews objectAtIndex:idx] isKindOfClass:[XAICoverFlowPanel class]]) {
-        return (XAICoverFlowPanel *) [self.coverFlowViews objectAtIndex:idx];
+    if ([[self.panelPlaceholders objectAtIndex:idx] isKindOfClass:[XAICoverFlowPanel class]]) {
+        return (XAICoverFlowPanel *) [self.panelPlaceholders objectAtIndex:idx];
     }
     
-    NSUInteger panelTag = kXAICoverFlowPanelTagPrefix + idx;
+    XAICoverFlowPanel *panel = (XAICoverFlowPanel *) [self dequeueCoverFlowPanel];
     
-    CGFloat
-        width   = self.coverPanelSize.width,
-        height  = self.coverPanelSize.height,
-        xOffset = floorf(((self.frame.size.width * 0.5f) - (width * 0.5f)) + (self.coverPanelSpace * idx)),
-        yOffset = floorf((self.frame.size.height * 0.5f) - (height * 0.5f));
+    if (!panel) {
+        CGRect panelFrame = [self frameForPanelAtIndex:idx];
+        
+        panel = [[XAICoverFlowPanel alloc] initWithFrame:panelFrame];
+        
+        #if !__has_feature(objc_arc)
+            [panel autorelease];
+        #endif
+    }
     
-    XAICoverFlowPanel *panel = [[[XAICoverFlowPanel alloc] initWithFrame:CGRectMake(xOffset, yOffset, width, height)] autorelease];
-    
-    [panel setTag:panelTag];
+    [panel setTransform:CGAffineTransformIdentity];
     
     return panel;
 }
+
+- (XAICoverFlowPanel *)dequeueCoverFlowPanel {
+    XAICoverFlowPanel *panel = (XAICoverFlowPanel *) [self.panelQueue anyObject];
+    
+    if (panel) {
+        #if !__has_feature(objc_arc)
+            [[panel retain] autorelease];
+        #endif
+        
+        [self.panelQueue removeObject:panel];
+    }
+    
+    return panel;
+}
+
+#pragma mark - XAIImageCache Delegate
 
 - (void)processCachedImage:(UIImage *)image atIndexPath:(NSIndexPath *)indexPath {
     NSUInteger panelTag = abs([indexPath row] + kXAICoverFlowPanelTagPrefix);
