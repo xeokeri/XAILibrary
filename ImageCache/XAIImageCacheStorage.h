@@ -8,10 +8,21 @@
 
 #import <Foundation/Foundation.h>
 
-@interface XAIImageCacheStorage : NSObject
+@interface XAIImageCacheStorage : NSObject {
+    @private
+    NSMutableDictionary *memoryStorage;
+}
+
+@property (nonatomic, strong) NSMutableDictionary *memoryStorage;
 
 + (XAIImageCacheStorage *)sharedStorage;
 
+- (UIImage *)cachedImageForURL:(NSString *)imageURL;
+
 - (void)saveImage:(UIImage *)image forURL:(NSString *)imageURL;
+- (void)saveImage:(UIImage *)image forURL:(NSString *)imageURL inMemory:(BOOL)inMemory;
+
+- (void)flushMemoryStorage;
+- (void)clearMemoryStorageForURL:(NSString *)imageURL;
 
 @end

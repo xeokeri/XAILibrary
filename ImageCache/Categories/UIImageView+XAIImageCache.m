@@ -7,12 +7,13 @@
 //
 
 #import "UIImageView+XAIImageCache.h"
-#import "UIImage+XAIImageCache.h"
 #import "NSString+XAIImageCache.h"
 
 #import "XAIImageCacheOperation.h"
 #import "XAIImageCacheQueue.h"
+#import "XAIImageCacheStorage.h"
 
+/** XAILogging */
 #import "NSException+XAILogging.h"
 
 @implementation UIImageView (XAIImageCache)
@@ -51,7 +52,7 @@
     }
     
     NSString *cacheURL   = (resizeImage) ? [url cachedURLForImageSize:cacheSize] : url;
-    UIImage *cachedImage = [UIImage cachedImageForURL:cacheURL];
+    UIImage *cachedImage = [[XAIImageCacheStorage sharedStorage] cachedImageForURL:cacheURL];
     
     if (cachedImage) {
         @try {

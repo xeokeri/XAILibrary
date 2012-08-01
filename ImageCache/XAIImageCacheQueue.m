@@ -8,9 +8,9 @@
 
 #import "XAIImageCacheQueue.h"
 #import "XAIImageCacheDefines.h"
-
 #import "XAIImageCacheOperation.h"
 
+/** XAILogging */
 #import "NSError+XAILogging.h"
 #import "NSException+XAILogging.h"
 

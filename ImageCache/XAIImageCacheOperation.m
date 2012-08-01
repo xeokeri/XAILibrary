@@ -12,7 +12,10 @@
 #import "XAIImageCacheDefines.h"
 #import "XAIImageCacheDelegate.h"
 
-#import "UIImage+XAIImageCache.h"
+/** XAIUtilities Categories */
+#import "UIImage+XAIUtilities.h"
+
+/** XAIImageCache Categories */
 #import "NSString+XAIImageCache.h"
 
 /** XAILogging */

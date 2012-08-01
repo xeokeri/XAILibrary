@@ -7,13 +7,15 @@
 //
 
 #import "UITableView+XAIImageCache.h"
-#import "UIImage+XAIImageCache.h"
 #import "NSString+XAIImageCache.h"
-#import "NSException+XAILogging.h"
 
 #import "XAIImageCacheQueue.h"
 #import "XAIImageCacheOperation.h"
+#import "XAIImageCacheStorage.h"
 #import "XAIImageCacheDelegate.h"
+
+/** XAILogging */
+#import "NSException+XAILogging.h"
 
 @implementation UITableView (XAIImageCache)
 
@@ -21,7 +23,7 @@
     [[XAIImageCacheQueue sharedQueue] cacheCleanup];
     
     NSString *cacheURL   = (imageSize.width != CGSizeZero.width && imageSize.height != CGSizeZero.height) ? [url cachedURLForImageSize:imageSize] : url;
-    UIImage *cachedImage = [UIImage cachedImageForURL:cacheURL];
+    UIImage *cachedImage = [[XAIImageCacheStorage sharedStorage] cachedImageForURL:cacheURL];
     
     if (cachedImage) {
         @try {
