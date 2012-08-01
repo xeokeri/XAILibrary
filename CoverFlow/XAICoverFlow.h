@@ -61,7 +61,7 @@
 @property (nonatomic) NSUInteger coverPanelBuffer;
 @property (nonatomic, strong) IBOutlet UIView *touchedView;
 @property (nonatomic, strong) NSMutableArray *panelPlaceholders;
-@property (nonatomic, strong) NSMutableArray *panelViews; /** @todo fix name. */
+@property (nonatomic, strong) NSMutableArray *panelViews;
 @property (nonatomic, strong) NSMutableSet *panelQueue;
 @property (nonatomic) NSRange coverPanelRange;
 @property (nonatomic, getter = isDirectionOfMovementRight) BOOL directionOfMovementRight;

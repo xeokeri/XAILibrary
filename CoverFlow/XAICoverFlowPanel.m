@@ -26,7 +26,7 @@
 
 - (void)dealloc {
     #if !__has_feature(objc_arc)
-        [panelImageView release], 
+        [panelImageView release];
         [reflectionImageView release];
         [reflectionGradient release];
         [loadingIndicator release];

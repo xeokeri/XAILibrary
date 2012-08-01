@@ -51,8 +51,6 @@
 #pragma mark - Memory Management
 
 - (void)dealloc {
-    coverFlowDelegate = nil;
-    
     #if !__has_feature(objc_arc)
         [coverFlowDataSource release];
         [touchedView release];
@@ -67,7 +65,7 @@
     panelPlaceholders = nil;
     panelViews = nil;
     panelQueue = nil;
-
+    
     #if !__has_feature(objc_arc)
         [super dealloc];
     #endif
@@ -396,7 +394,6 @@
     }
 
     for (NSUInteger i = from; i < to; i++) {
-        
         if (i >= [self.panelPlaceholders count]) {
             break;
         }
