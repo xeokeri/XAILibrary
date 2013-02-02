@@ -11,6 +11,10 @@
 @interface UIImage (XAIImageCache)
 
 /** UIImage Tile Crop */
-- (void)cropIntoTilesWithSize:(CGSize)tileSize withCacheURLPrefix:(NSString *)prefix;
+
+#pragma mark - BOOL
+
+- (BOOL)cropIntoTilesWithSize:(CGSize)tileSize withCacheURLPrefix:(NSString *)prefix;
+- (BOOL)cropIntoTilesWithSize:(CGSize)tileSize withCacheURLPrefix:(NSString *)prefix overflowEdges:(BOOL)overflowEdges;
 
 @end

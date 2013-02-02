@@ -16,7 +16,7 @@
 @property (nonatomic, retain) NSMutableArray *urlList;
 
 + (XAIImageCacheQueue *)sharedQueue;
-- (void)cacheCleanup;
+
 - (void)removeURL:(NSString *)url;
 - (void)cancelOperationForURL:(NSString *)url;
 

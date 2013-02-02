@@ -8,11 +8,59 @@
 
 #import "UIImage+XAIUtilities.h"
 
+#import <QuartzCore/QuartzCore.h>
+#import <ImageIO/ImageIO.h>
+
+#define kXAIUtilitiesMaxImageSize   1024.0f
+
+@interface UIImage (XAIUtilitiesPrivate)
+
+- (CGSize)rotateSize:(CGSize)size;
++ (CGFloat)maxSide;
+
+@end
+
+@implementation UIImage (XAIUtilitiesPrivate)
+
+- (CGSize)rotateSize:(CGSize)size {
+    return CGSizeMake(size.height, size.width);
+}
+
++ (CGFloat)maxSide {
+    return floorf(kXAIUtilitiesMaxImageSize * [[UIScreen mainScreen] scale]);
+}
+
+@end
+
 @implementation UIImage (XAIUtilities)
 
+#pragma mark - UIView Capture
+
+/** @todo Fix issue with retina clipping. */
++ (UIImage *)createImageFromView:(UIView *)captureView {
+    UIGraphicsBeginImageContextWithOptions(captureView.bounds.size, captureView.opaque, 0.0f);
+    
+    CGContextRef context = UIGraphicsGetCurrentContext();
+    CGContextSetInterpolationQuality(context, kCGInterpolationHigh);
+    
+    [captureView.layer renderInContext:context];
+    
+    UIImage *capturedImage = UIGraphicsGetImageFromCurrentImageContext();
+    
+    UIGraphicsEndImageContext();
+    
+    return capturedImage;
+}
+
+#pragma mark - UIImage Crop
+
 - (UIImage *)cropInRect:(CGRect)rect {
+    if (self.scale > 1.0f) {
+        rect = CGRectMake((rect.origin.x * self.scale), (rect.origin.y * self.scale), (rect.size.width * self.scale), (rect.size.height * self.scale));
+    }
+    
     CGImageRef referenceImage = CGImageCreateWithImageInRect(self.CGImage, rect);
-    UIImage *croppedImage     = [UIImage imageWithCGImage:referenceImage];
+    UIImage *croppedImage     = [UIImage imageWithCGImage:referenceImage scale:self.scale orientation:UIImageOrientationUp];
     
     CGImageRelease(referenceImage);
     
@@ -43,6 +91,45 @@
     return [self cropInRect:rect];
 }
 
+#pragma mark - UIImage Scale
+
+- (UIImage *)scaleAspectRatioToMaxTileSize {
+    UIImage *resizedImage = nil;
+    
+    CGFloat
+        imageScale    = [[UIScreen mainScreen] scale],
+        maxTileSize   = [UIImage maxSide];
+    
+    /** The starting aspect size. */
+    CGSize aspectSize = CGSizeMake(floorf(self.size.width / imageScale), floorf(self.size.height / imageScale));
+    
+    /** Check if size of original image is less than max pixels. */
+    if (self.size.width > maxTileSize || self.size.height > maxTileSize) {
+        CGFloat
+            aspectWidth  = (((self.size.width / self.size.height) * maxTileSize) / imageScale),
+            aspectHeight = (((self.size.height / self.size.width) * maxTileSize) / imageScale),
+            maxWidth     = ceilf(sqrt(aspectWidth) * sqrt(aspectHeight));
+        
+        /** Resize accordingly to make the aspect stay the same. */
+        aspectSize = CGSizeMake(maxWidth, aspectHeight);
+    }
+    
+    CGRect imageFrame = {CGPointZero, aspectSize};
+    
+    @autoreleasepool {
+        UIGraphicsBeginImageContextWithOptions(aspectSize, YES, 0.0f);
+        
+        [self drawInRect:imageFrame];
+        
+        resizedImage = UIGraphicsGetImageFromCurrentImageContext();
+        
+        UIGraphicsEndImageContext();
+    }
+    
+    return resizedImage;
+}
+
+#pragma mark - UIImage Resize
 
 - (UIImage *)resizeToFillThenCropToSize:(CGSize)size {
     UIImage *resizedImage = [self resizeToFillSize:size];
@@ -62,11 +149,11 @@
     CGSize imageResolution = CGSizeMake(width, height);
     
     if (width >= height) {
-        imageResolution.width  = ((minSideLength / height * width) * scale);
-        imageResolution.height = (minSideLength * scale);
+        imageResolution.width  = floorf((minSideLength / height * width) * scale);
+        imageResolution.height = floorf(minSideLength * scale);
     } else {
-        imageResolution.width  = (minSideLength * scale);
-        imageResolution.height = ((minSideLength / width * height) * scale);
+        imageResolution.width  = floorf(minSideLength * scale);
+        imageResolution.height = floorf((minSideLength / width * height) * scale);
     }
     
     CGRect imageFrame = CGRectMake(0.0f, 0.0f, imageResolution.width, imageResolution.height);
@@ -82,23 +169,155 @@
     return resizedImage;
 }
 
+#pragma mark - UIImage Overlay
+
 - (UIImage *)colorOverlay:(UIColor *)color {
     CGRect bounds = {0.0f, 0.0f, self.size};
     
-    UIGraphicsBeginImageContext(self.size);
+    /** Allow transparent images to show accordingly. */
+    UIGraphicsBeginImageContextWithOptions(self.size, NO, 0.0f);
     
     /** Overlay the image with the selected color. */
     [color setFill];
     
     CGContextRef context = UIGraphicsGetCurrentContext();
+    
+    CGContextSetInterpolationQuality(context, kCGInterpolationHigh);
+    CGContextTranslateCTM(context, 0.0f, self.size.height);
+    CGContextScaleCTM(context, 1.0f, -1.0f);
     CGContextClipToMask(context, bounds, [self CGImage]);
-    CGContextFillRect(context, bounds);
+    CGContextAddRect(context, bounds);
+    CGContextDrawPath(context, kCGPathFill);
     
     UIImage *overlayImage = UIGraphicsGetImageFromCurrentImageContext();
     
     UIGraphicsEndImageContext();
     
     return overlayImage;
+}
+
+#pragma mark - UIImage Rotate & Scale
+
++ (UIImage *)resizedCachedImageWithFilePath:(NSURL *)imagePath {
+    UIImage *resizedImage      = nil;
+    CGImageSourceRef imgSource = CGImageSourceCreateWithURL((__bridge CFURLRef)imagePath, NULL);
+    
+    if (!imgSource) {
+        return nil;
+    }
+    
+    @autoreleasepool {
+        CFDictionaryRef imageOptions = (__bridge CFDictionaryRef) [NSDictionary dictionaryWithObjectsAndKeys:
+            (id)kCFBooleanTrue, (id)kCGImageSourceCreateThumbnailWithTransform,
+            (id)kCFBooleanTrue, (id)kCGImageSourceCreateThumbnailFromImageIfAbsent,
+            (id)[NSNumber numberWithFloat:[UIImage maxSide]], (id)kCGImageSourceThumbnailMaxPixelSize,
+            nil];
+        
+        CGImageRef imageRef = CGImageSourceCreateThumbnailAtIndex(imgSource, 0, imageOptions);
+        
+        resizedImage = [UIImage imageWithCGImage:imageRef];
+        
+        CGImageRelease(imageRef);
+        CFRelease(imgSource);
+    }
+    
+    return resizedImage;
+}
+
+#pragma mark - UIImage Rotate
+
+- (UIImage *)fixImageOrientation {
+    if (self.imageOrientation == UIImageOrientationUp) {
+        return self;
+    }
+    return self;
+    UIImage *updatedImage = nil;
+    
+    @autoreleasepool {
+        CGAffineTransform transformation = CGAffineTransformIdentity;
+        
+        switch (self.imageOrientation) {
+            case UIImageOrientationDown:
+            case UIImageOrientationDownMirrored: {
+                transformation = CGAffineTransformTranslate(transformation, self.size.width, self.size.height);
+                transformation = CGAffineTransformRotate(transformation, M_PI);
+            }
+                
+                break;
+                
+            case UIImageOrientationLeft:
+            case UIImageOrientationLeftMirrored: {
+                transformation = CGAffineTransformTranslate(transformation, self.size.width, 0.0f);
+                transformation = CGAffineTransformRotate(transformation, M_PI_2);
+            }
+                break;
+                
+            case UIImageOrientationRight:
+            case UIImageOrientationRightMirrored: {
+                transformation = CGAffineTransformTranslate(transformation, 0.0f, self.size.height);
+                transformation = CGAffineTransformRotate(transformation, -M_PI_2);
+            }
+                
+                break;
+                
+            default:
+                break;
+        }
+        
+        switch (self.imageOrientation) {
+            case UIImageOrientationUpMirrored: {
+                transformation = CGAffineTransformTranslate(transformation, self.size.width, 0.0f);
+                transformation = CGAffineTransformScale(transformation, -1.0f, 1.0f);
+            }
+                
+                break;
+                
+            case UIImageOrientationLeftMirrored:
+            case UIImageOrientationRightMirrored: {
+                transformation = CGAffineTransformTranslate(transformation, self.size.height, 0.0f);
+                transformation = CGAffineTransformScale(transformation, -1.0f, 1.0f);
+            }
+                
+            default:
+                break;
+        }
+        
+        CGContextRef context = CGBitmapContextCreate(NULL,
+                                                     self.size.width,
+                                                     self.size.height,
+                                                     CGImageGetBitsPerComponent(self.CGImage),
+                                                     0,
+                                                     CGImageGetColorSpace(self.CGImage),
+                                                     CGImageGetBitmapInfo(self.CGImage));
+        
+        CGContextConcatCTM(context, transformation);
+        
+        switch (self.imageOrientation) {
+            case UIImageOrientationLeft:
+            case UIImageOrientationLeftMirrored:
+            case UIImageOrientationRight:
+            case UIImageOrientationRightMirrored: {
+                CGContextDrawImage(context, CGRectMake(0.0f, 0.0f, self.size.height, self.size.width), [self CGImage]);
+            }
+                
+                break;
+                
+            default: {
+                CGContextDrawImage(context, CGRectMake(0.0f, 0.0f, self.size.width, self.size.height), [self CGImage]);
+            }
+                
+                break;
+        }
+    
+        CGImageRef contextImage = CGBitmapContextCreateImage(context);
+        
+        updatedImage = [UIImage imageWithCGImage:contextImage scale:self.scale orientation:UIImageOrientationUp];
+        
+        CGContextRelease(context);
+        CGImageRelease(contextImage);
+    }
+    
+    return updatedImage;
 }
 
 @end

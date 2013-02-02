@@ -7,19 +7,21 @@
 //
 
 /** NSUInteger */
-#define kXAIImageCacheQueueMaxLimit     10
-#define kXAIImageCacheFlushInterval     7 /** Number in days. */
+#define kXAIImageCacheQueueMaxLimit         10
+#define kXAIImageCacheFlushInterval         7 /** Number in days. */
 
 /** CGFloat */
-#define kXAIImageCacheTimeoutInterval   15.0f
-#define kXAIImageCacheFadeInDuration    0.25f
+#define kXAIImageCacheTimeoutInterval       15.0f
+#define kXAIImageCacheFadeInDuration        0.25f
+#define kXAIImageCacheCropEdgeOverflow      2.0f
 
 /** NSString */
-#define kXAIImageCacheFlushPerformed    @"ImageCacheFlushLastPerformed"
-#define kXAIImageCacheDirectoryPath     @"ImageCache"
-#define kXAIImageCacheFileNamePath      @"%@/%@.png"
-#define kXAIImageCacheMemoryImageKey    @"image"
+#define kXAIImageCacheFlushPerformed        @"ImageCacheFlushLastPerformed"
+#define kXAIImageCacheDirectoryPathTemp     @"ImageCache"
+#define kXAIImageCacheDirectoryPathPerm     @"ImageStorage"
+#define kXAIImageCacheFileNamePath          @"%@/%@.png"
+#define kXAIImageCacheMemoryImageKey        @"image"
 
 /** Debugging */
-#define kXAIImageCacheDebuggingMode     NO
-#define kXAIImageCacheDebuggingLevel    0
+#define kXAIImageCacheDebuggingMode         NO
+#define kXAIImageCacheDebuggingLevel        0

@@ -10,10 +10,19 @@
 
 @interface UIImage (XAIUtilities)
 
+/** UIImage Screenshot from UIView */
++ (UIImage *)createImageFromView:(UIView *)captureView;
+
 /** UIImage Crop */
 - (UIImage *)cropInRect:(CGRect)rect;
 - (UIImage *)cropInCenterForSize:(CGSize)size;
 - (UIImage *)cropInCenterForSize:(CGSize)size withScaling:(BOOL)scaling;
+
+/** UIImage Rotate & Scale */
++ (UIImage *)resizedCachedImageWithFilePath:(NSURL *)imagePath;
+
+/** UIImage Scale */
+- (UIImage *)scaleAspectRatioToMaxTileSize;
 
 /** UIImage Resize */
 - (UIImage *)resizeToFillThenCropToSize:(CGSize)size;
@@ -21,5 +30,8 @@
 
 /** UIImage Color Overlay */
 - (UIImage *)colorOverlay:(UIColor *)color;
+
+/** UIImage Rotate */
+- (UIImage *)fixImageOrientation;
 
 @end

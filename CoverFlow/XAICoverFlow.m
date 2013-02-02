@@ -59,12 +59,12 @@
         [panelQueue release];
     #endif
     
-    coverFlowDelegate = nil;
+    coverFlowDelegate   = nil;
     coverFlowDataSource = nil;
-    touchedView = nil;
-    panelPlaceholders = nil;
-    panelViews = nil;
-    panelQueue = nil;
+    touchedView         = nil;
+    panelPlaceholders   = nil;
+    panelViews          = nil;
+    panelQueue          = nil;
     
     #if !__has_feature(objc_arc)
         [super dealloc];

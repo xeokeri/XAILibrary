@@ -20,6 +20,9 @@
 #import <Foundation/Foundation.h>
 #import <CoreGraphics/CGGeometry.h>
 
+/** XAIImageCache Protocols */
+#import "XAIImageCacheDelegate.h"
+
 typedef enum {
     kXAIImageCacheStatusTypeFinished  = 0,
     kXAIImageCacheStatusTypeExecuting = 1

@@ -13,6 +13,8 @@
     NSFetchedResultsController *fetchedResultsController;
     
     @private
+    id <NSFetchedResultsControllerDelegate> delegate;
+    
     NSManagedObjectContext *fetchQueryContext;
     
     NSString     *filterTemplateName;
@@ -25,6 +27,7 @@
     BOOL         filterSortOrderAscending;
 }
 
+@property (nonatomic, weak) id <NSFetchedResultsControllerDelegate> delegate;
 @property (nonatomic, strong) NSFetchedResultsController *fetchedResultsController;
 @property (nonatomic, strong) NSManagedObjectContext *fetchQueryContext;
 @property (nonatomic, strong) NSString *filterTemplateName;
@@ -50,6 +53,7 @@
 - (NSArray *)fetchedObjectsForTemplateName:(NSString *)fetchTemplateName withSubstitutes:(NSDictionary *)substitutes;
 - (NSArray *)fetchedObjectsForTemplateName:(NSString *)fetchTemplateName withSubstitutes:(NSDictionary *)substitutes withSortKey:(NSString *)sortingKey;
 
+- (id)initWithDelegate:(id <NSFetchedResultsControllerDelegate>)incomingDelegate;
 - (id)initWithContext:(NSManagedObjectContext *)incomingContext;
 - (id)initWithContext:(NSManagedObjectContext *)incomingContext withEntityName:(NSString *)entityName;
 

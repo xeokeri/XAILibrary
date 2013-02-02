@@ -41,7 +41,7 @@
 }
 
 - (void)imageWithURL:(NSString *)url resize:(BOOL)resizeImage {
-    [[XAIImageCacheQueue sharedQueue] cacheCleanup];
+    [[XAIImageCacheStorage sharedStorage] cacheCleanup];
     
     [self setImage:nil forState:UIControlStateNormal];
     

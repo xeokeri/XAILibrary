@@ -24,6 +24,7 @@
 
 @synthesize fetchedResultsController = __fetchedResultsController;
 @synthesize fetchQueryContext        = __fetchQueryContext;
+@synthesize delegate                 = __delegate;
 
 @synthesize filterTemplateName, filterEntityName, filterSortKey, filterSectionKeyPath;
 @synthesize filterSortOrderAscending;
@@ -33,6 +34,10 @@
     self = [super init];
     
     if (self) {
+        /** Self defaults. */
+        self.delegate                   = self;
+        
+        /** Nil defaults. */
         self.filterEntityName           = nil;
         self.filterTemplateName         = nil;
         self.filterPredicate            = nil;
@@ -40,6 +45,16 @@
         self.filterSectionKeyPath       = nil;
         self.filterSortKey              = nil;
         self.fetchQueryContext          = nil;
+    }
+    
+    return self;
+}
+
+- (id)initWithDelegate:(id <NSFetchedResultsControllerDelegate>)incomingDelegate {
+    self = [super init];
+    
+    if (self) {
+        self.delegate = incomingDelegate;
     }
     
     return self;
@@ -86,6 +101,7 @@
     filterSectionKeyPath       = nil;
     fetchQueryContext          = nil;
     fetchedResultsController   = nil;
+    delegate                   = nil;
     
     #if !__has_feature(objc_arc)
         [super dealloc];
@@ -97,7 +113,7 @@
 - (void)resetDefaults {
     if (__fetchedResultsController != nil) {
         __fetchedResultsController.delegate = nil;
-        __fetchedResultsController = nil;
+        __fetchedResultsController          = nil;
     }
     
     /** Nil objects */
@@ -282,7 +298,7 @@
     // Edit the section name key path and cache name if appropriate.
     // nil for section name key path means "no sections".
     NSFetchedResultsController *aFetchedResultsController = [[NSFetchedResultsController alloc] initWithFetchRequest:fetchRequest managedObjectContext:self.fetchQueryContext sectionNameKeyPath:self.filterSectionKeyPath cacheName:nil];
-    aFetchedResultsController.delegate = self;
+    aFetchedResultsController.delegate = self.delegate;
     self.fetchedResultsController = aFetchedResultsController;
     
     #if !__has_feature(objc_arc)

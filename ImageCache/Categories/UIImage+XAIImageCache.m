@@ -21,15 +21,22 @@
 
 @implementation UIImage (XAIImageCache)
 
-- (void)cropIntoTilesWithSize:(CGSize)tileSize withCacheURLPrefix:(NSString *)prefix {
-    NSDate *startDate;
+#pragma mark - BOOL
+
+- (BOOL)cropIntoTilesWithSize:(CGSize)tileSize withCacheURLPrefix:(NSString *)prefix {
+    return [self cropIntoTilesWithSize:tileSize withCacheURLPrefix:prefix overflowEdges:NO];
+}
+
+- (BOOL)cropIntoTilesWithSize:(CGSize)tileSize withCacheURLPrefix:(NSString *)prefix overflowEdges:(BOOL)overflowEdges {
+    NSDate *startDate = nil;
+    BOOL successful   = YES;
     
     if (kXAIImageCacheDebuggingMode && kXAIImageCacheDebuggingLevel >= 0) {
         startDate = [NSDate date];
     }
     
     NSUInteger
-        rows    = ceil(self.size.height / tileSize.height),
+        rows    = ceilf(self.size.height / tileSize.height),
         columns = ceilf(self.size.width / tileSize.width);
     
     for (NSUInteger x = 0; x < columns; x++) {
@@ -44,6 +51,39 @@
                 continue;
             }
             
+            if (overflowEdges == YES) {
+                /** Check to expand the width and height for the tile frame. */
+                for (NSUInteger z = 0; z <= 1; z++) {
+                    /** Move the width upwards. */
+                    if (floorf((xAxis - kXAIImageCacheCropEdgeOverflow) + width) < floorf(self.size.width)) {
+                        if (floorf(xAxis) == 0.0f && z > 0) {
+                            continue;
+                        }
+                        
+                        width += kXAIImageCacheCropEdgeOverflow;
+                    }
+                    
+                    /** Move the height upwards. */
+                    if (floorf((yAxis - kXAIImageCacheCropEdgeOverflow) + height) < floorf(self.size.height)) {
+                        if (floorf(yAxis) == 0.0f && z > 0) {
+                            continue;
+                        }
+                        
+                        height += kXAIImageCacheCropEdgeOverflow;
+                    }
+                }
+                
+                /** Move the X axis back. */
+                if (floorf(xAxis - kXAIImageCacheCropEdgeOverflow) > 0.0f) {
+                    xAxis -= kXAIImageCacheCropEdgeOverflow;
+                }
+                
+                /** Move the Y axis back. */
+                if (floorf(yAxis - kXAIImageCacheCropEdgeOverflow) > 0.0f) {
+                    yAxis -= kXAIImageCacheCropEdgeOverflow;
+                }
+            }
+            
             CGRect sliceFrame  = CGRectMake(xAxis, yAxis, width, height);
             NSString *sliceURL = [prefix cachedURLForImageRect:sliceFrame];
             
@@ -52,7 +92,17 @@
                 UIImage *slicedImage = [self cropInRect:sliceFrame];
                 
                 /** Save slice to image cache. */
-                [[XAIImageCacheStorage sharedStorage] saveImage:slicedImage forURL:sliceURL inMemory:YES];
+                BOOL savedImage = [[XAIImageCacheStorage sharedStorage] saveImage:slicedImage forURL:sliceURL inMemory:NO];
+                
+                slicedImage = nil;
+                
+                if (!savedImage) {
+                    successful = NO;
+                    
+                    if (kXAIImageCacheDebuggingMode && kXAIImageCacheDebuggingLevel >= 0) {
+                        NSLog(@"Image not saved for URL: %@", sliceURL);
+                    }
+                }
             }
         }
     }
@@ -64,6 +114,8 @@
     }
     
     startDate = nil;
+    
+    return successful;
 }
 
 @end
