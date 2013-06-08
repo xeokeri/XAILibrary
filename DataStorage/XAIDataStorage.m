@@ -22,9 +22,6 @@ static XAIDataStorage *dataStorageInstance;
 - (void)contextDidSaveWithNotification:(NSNotification *)notification;
 - (void)contextObjectsDidChangeWithNotification:(NSNotification *)notification;
 
-- (void)setModelStorageName:(NSString *)aModelStorageName;
-- (NSString *)modelStorageName;
-
 @end
 
 @implementation XAIDataStorage
@@ -32,26 +29,8 @@ static XAIDataStorage *dataStorageInstance;
 @synthesize managedObjectContext       = __managedObjectContext;
 @synthesize managedObjectModel         = __managedObjectModel;
 @synthesize persistentStoreCoordinator = __persistentStoreCoordinator;
-@synthesize modelStorageName           = __modelStorageName;
 
 #pragma mark - Init
-
-+ (XAIDataStorage *)sharedStorageWithName:(NSString *)storageName {
-    if (dataStorageInstance != nil) {
-        return dataStorageInstance;
-    }
-    
-    @synchronized(self) {
-        if (!dataStorageInstance) {
-            dataStorageInstance = [self sharedStorage];
-        }
-        
-        /** Set the storage name. This is the only time that this should be set. */
-        [dataStorageInstance setModelStorageName:storageName];
-    }
-    
-    return dataStorageInstance;
-}
 
 + (XAIDataStorage *)sharedStorage {
     if (dataStorageInstance != nil) {
@@ -188,7 +167,7 @@ static XAIDataStorage *dataStorageInstance;
     }
     
     @synchronized(self) {
-        NSURL *modelURL = [[NSBundle mainBundle] URLForResource:self.modelStorageName withExtension:@"momd"];
+        NSURL *modelURL = [[NSBundle mainBundle] URLForResource:kXAIDataStorageModelName withExtension:@"momd"];
         
         __managedObjectModel = [[NSManagedObjectModel alloc] initWithContentsOfURL:modelURL];
     }
@@ -206,13 +185,13 @@ static XAIDataStorage *dataStorageInstance;
     }
     
     @synchronized(self) {
-        NSString *storeName        = [NSString stringWithFormat:@"%@.sqlite", self.modelStorageName];
+        NSString *storeName        = [NSString stringWithFormat:@"%@.sqlite", kXAIDataStorageModelName];
         NSString *storePath        = [[self applicationDocumentsDirectoryPath] stringByAppendingPathComponent:storeName];
         NSFileManager *fileManager = [NSFileManager defaultManager];
         NSError *error             = nil;
         
         if (![fileManager fileExistsAtPath:storePath]) {
-            NSString *defaultStorePath = [[NSBundle mainBundle] pathForResource:self.modelStorageName ofType:@"sqlite"];
+            NSString *defaultStorePath = [[NSBundle mainBundle] pathForResource:kXAIDataStorageModelName ofType:@"sqlite"];
             
             if (defaultStorePath) {
                 if (![fileManager copyItemAtPath:defaultStorePath toPath:storePath error:&error]) {
@@ -277,24 +256,6 @@ static XAIDataStorage *dataStorageInstance;
     NSString *basePath = ([paths count] > 0) ? [paths objectAtIndex:0] : nil;
     
     return basePath;
-}
-
-#pragma mark - Core Data Model Name
-
-- (void)setModelStorageName:(NSString *)aModelStorageName {
-    __modelStorageName = aModelStorageName;
-}
-
-- (NSString *)modelStorageName {
-    if (__modelStorageName != nil) {
-        return __modelStorageName;
-    }
-    
-    @synchronized(self) {
-        __modelStorageName = kXAIDataStorageModelName;
-    }
-    
-    return __modelStorageName;
 }
 
 @end

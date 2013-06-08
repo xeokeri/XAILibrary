@@ -7,11 +7,19 @@
 //
 
 /** BOOL */
-#define kXAIDataStorageDebugging                    YES
+#ifndef kXAIDataStorageDebugging
+    #define kXAIDataStorageDebugging                    NO
+#endif
 
 /** NSString */
-#define kXAIDataStorageModelName                    @"CoreDataModel"    /** A default name. */
+#ifndef kXAIDataStorageModelName
+    #define kXAIDataStorageModelName                    @"CoreDataModel"
+#endif
 
-/** Needs improvement for the following. */
-#define kXAIDataStorageDefaultSortKey               @"created"
-#define kXAIDataStorageDefaultSortOrderAscending    YES
+#ifndef kXAIDataStorageDefaultSortKey
+    #define kXAIDataStorageDefaultSortKey               @"created"
+#endif
+
+#ifndef kXAIDataStorageDefaultSortOrderAscending
+    #define kXAIDataStorageDefaultSortOrderAscending    YES
+#endif

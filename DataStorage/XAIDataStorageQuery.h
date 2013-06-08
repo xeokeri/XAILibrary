@@ -13,7 +13,7 @@
     NSFetchedResultsController *fetchedResultsController;
     
     @private
-    id <NSFetchedResultsControllerDelegate> delegate;
+    id <NSFetchedResultsControllerDelegate> __unsafe_unretained delegate;
     
     NSManagedObjectContext *fetchQueryContext;
     
@@ -27,7 +27,7 @@
     BOOL         filterSortOrderAscending;
 }
 
-@property (nonatomic, weak) id <NSFetchedResultsControllerDelegate> delegate;
+@property (nonatomic, unsafe_unretained) id <NSFetchedResultsControllerDelegate> delegate;
 @property (nonatomic, strong) NSFetchedResultsController *fetchedResultsController;
 @property (nonatomic, strong) NSManagedObjectContext *fetchQueryContext;
 @property (nonatomic, strong) NSString *filterTemplateName;
