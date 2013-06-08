@@ -31,7 +31,4 @@
 /** UIImage Color Overlay */
 - (UIImage *)colorOverlay:(UIColor *)color;
 
-/** UIImage Rotate */
-- (UIImage *)fixImageOrientation;
-
 @end
