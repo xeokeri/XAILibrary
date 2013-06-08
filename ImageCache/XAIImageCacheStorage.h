@@ -23,7 +23,7 @@ typedef NSUInteger XAIImageCacheStorageFlushInterval;
     NSUInteger cacheIntervalNumberOfDays;
     
     @private
-    NSMutableDictionary *memoryStorage;
+    NSCache *cacheStorage;
 }
 
 @property (nonatomic) NSUInteger cacheIntervalNumberOfDays;
@@ -44,7 +44,6 @@ typedef NSUInteger XAIImageCacheStorageFlushInterval;
 - (BOOL)saveImage:(UIImage *)image forURL:(NSString *)imageURL;
 - (BOOL)saveImage:(UIImage *)image forURL:(NSString *)imageURL temporary:(BOOL)tempStorage;
 - (BOOL)saveImage:(UIImage *)image forURL:(NSString *)imageURL temporary:(BOOL)tempStorage requireJPEG:(BOOL)jpegOnly;
-- (BOOL)saveImage:(UIImage *)image forURL:(NSString *)imageURL inMemory:(BOOL)inMemory;
 
 #pragma mark - Image Delete
 

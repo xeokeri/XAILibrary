@@ -6,6 +6,11 @@
 //  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
 //
 
+/** BOOL */
+#ifndef kXAIImageCacheTempAsPNG
+    #define kXAIImageCacheTempAsPNG         NO
+#endif
+
 /** NSUInteger */
 #define kXAIImageCacheQueueMaxLimit         10
 #define kXAIImageCacheFlushInterval         7 /** Number in days. */
@@ -20,7 +25,6 @@
 #define kXAIImageCacheDirectoryPathTemp     @"ImageCache"
 #define kXAIImageCacheDirectoryPathPerm     @"ImageStorage"
 #define kXAIImageCacheFileNamePath          @"%@/%@.png"
-#define kXAIImageCacheMemoryImageKey        @"image"
 
 /** Debugging */
 #define kXAIImageCacheDebuggingMode         NO

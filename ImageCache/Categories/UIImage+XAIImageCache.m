@@ -92,7 +92,7 @@
                 UIImage *slicedImage = [self cropInRect:sliceFrame];
                 
                 /** Save slice to image cache. */
-                BOOL savedImage = [[XAIImageCacheStorage sharedStorage] saveImage:slicedImage forURL:sliceURL inMemory:NO];
+                BOOL savedImage = [[XAIImageCacheStorage sharedStorage] saveImage:slicedImage forURL:sliceURL];
                 
                 slicedImage = nil;
                 

@@ -18,7 +18,7 @@
 
 @interface XAIImageCacheStorage()
 
-@property (nonatomic, strong) NSMutableDictionary *memoryStorage;
+@property (nonatomic, strong) NSCache *cacheStorage;
 
 - (NSString *)imagePathForURL:(NSString *)imageURL temporary:(BOOL)tempStorage;
 
@@ -26,7 +26,7 @@
 
 @implementation XAIImageCacheStorage
 
-@synthesize memoryStorage;
+@synthesize cacheStorage;
 @synthesize cacheIntervalNumberOfDays;
 
 #pragma mark - Init XAIImageCache
@@ -38,8 +38,8 @@
         /** Set the default number of days for the cache cleanup. */
         self.cacheIntervalNumberOfDays = kXAIImageCacheFlushInterval;
         
-        /** Set the memory storage. */
-        self.memoryStorage = [NSMutableDictionary dictionaryWithCapacity:0];
+        /** Set the cache storage. */
+        self.cacheStorage  = [[NSCache alloc] init];
     }
     
     return self;
@@ -79,7 +79,7 @@
         
         NSAssert(instanceStorage, @"'instanceStorage' should not be nil.");
         NSAssert([instanceStorage isKindOfClass:[XAIImageCacheStorage class]], @"'instanceStorage' is not an instance of XAIImageCacheStorage class.");
-        NSAssert((instanceStorage.memoryStorage != nil), @"'memoryStorage' is nil.");
+        NSAssert((instanceStorage.cacheStorage != nil), @"'cacheStorage' is nil.");
     }
     
     return instanceStorage;
@@ -113,13 +113,7 @@
     UIImage *cachedImage = nil;
     
     @try {
-        if ([self.memoryStorage count] > 0 && [[self.memoryStorage allKeys] containsObject:imageURL]) {
-            NSDictionary *contents = [self.memoryStorage objectForKey:imageURL];
-            
-            if (contents != nil) {
-                cachedImage = (UIImage *) [contents objectForKey:kXAIImageCacheMemoryImageKey];
-            }
-        }
+        cachedImage = [self.cacheStorage objectForKey:imageURL];
     } @catch (NSException *exception) {
         [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
     } @finally {
@@ -129,9 +123,10 @@
                 NSLog(@"Checking disk.");
             }
             
-            NSString *imagePath = [self imagePathForURL:imageURL temporary:tempStorage];
+            NSString *imagePath   = [self imagePathForURL:imageURL temporary:tempStorage];
+            NSData *imageContents = [NSData dataWithContentsOfFile:imagePath];
             
-            cachedImage = [UIImage imageWithContentsOfFile:imagePath];
+            cachedImage = [UIImage imageWithData:imageContents];
             
             if (cachedImage != nil) {
                 if (kXAIImageCacheDebuggingMode && (kXAIImageCacheDebuggingLevel >= 2)) {
@@ -185,9 +180,20 @@
 - (BOOL)saveImage:(UIImage *)image forURL:(NSString *)imageURL temporary:(BOOL)tempStorage requireJPEG:(BOOL)jpegOnly {
     BOOL didImageSave = NO;
     
+    if (image == nil) {
+        return didImageSave;
+    }
+    
+    // Add the image to the cache.
+    [self.cacheStorage setObject:image forKey:imageURL];
+    
     @autoreleasepool {
-        NSData *imageData   = (tempStorage == YES || jpegOnly == YES) ? UIImageJPEGRepresentation(image, 1.0f) : UIImagePNGRepresentation(image);
-        NSData *contentData = [NSData dataWithData:imageData];
+        NSData
+            *imageData   = ((kXAIImageCacheTempAsPNG == YES) && (tempStorage == YES))
+                ? UIImagePNGRepresentation(image)
+                : ((tempStorage == YES || jpegOnly == YES) ? UIImageJPEGRepresentation(image, 1.0f) : UIImagePNGRepresentation(image)),
+            *contentData = [NSData dataWithData:imageData];
+        
         NSArray *cachePaths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
         
         NSString
@@ -204,25 +210,13 @@
     return didImageSave;
 }
 
-- (BOOL)saveImage:(UIImage *)image forURL:(NSString *)imageURL inMemory:(BOOL)inMemory {
-    if (inMemory == YES) {
-        NSDictionary *imageContents = [NSDictionary dictionaryWithObject:image forKey:kXAIImageCacheMemoryImageKey];
-        
-        [self.memoryStorage setObject:imageContents forKey:imageURL];
-    } else {
-        return [self saveImage:image forURL:imageURL temporary:YES];
-    }
-    
-    return YES;
-}
-
 #pragma mark - Image - Delete
 
 - (void)cacheCleanup {
     NSUserDefaults *defaults       = [NSUserDefaults standardUserDefaults];
     NSDate *currentDate            = [NSDate date];
     NSDate *lastUpdatedDate        = [defaults objectForKey:kXAIImageCacheFlushPerformed];
-    NSUInteger updateTimeframe     = (60 * 60 * 24 * kXAIImageCacheFlushInterval); // seconds, minutes, hours, days...
+    NSUInteger updateTimeframe     = (60 * 60 * 24 * self.cacheIntervalNumberOfDays); // seconds, minutes, hours, days...
     NSTimeInterval currentInterval = [currentDate timeIntervalSinceNow];
     
     BOOL isFlushRequired = NO;
@@ -359,40 +353,13 @@
 #pragma mark - Image - Memory Flush All
 
 - (void)flushMemoryStorage {
-    [self.memoryStorage removeAllObjects];
+    [self.cacheStorage removeAllObjects];
 }
 
 #pragma mark - Image - Memory Flush Single
 
 - (void)clearMemoryStorageForURL:(NSString *)imageURL {
-    NSArray *urlKeys = [self.memoryStorage allKeys];
-    
-    if ([urlKeys count] == 0) {
-        return;
-    }
-    
-    /** If the URL is nil, don't go any further. */
-    if (imageURL == nil) {
-        return;
-    }
-    
-    for (NSString *urlKey in urlKeys) {
-        NSRange urlPrefixRange = [urlKey rangeOfString:imageURL];
-        
-        if ([self.memoryStorage count] == 0) {
-            break;
-        }
-        
-        switch (urlPrefixRange.location) {
-            case 0: {
-                [self.memoryStorage removeObjectForKey:urlKey];
-            }
-                break;
-                
-            default:
-                break;
-        }
-    }
+    [self.cacheStorage removeObjectForKey:imageURL];
 }
 
 @end
