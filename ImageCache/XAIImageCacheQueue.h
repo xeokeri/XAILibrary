@@ -13,7 +13,7 @@
     NSMutableArray *urlList;
 }
 
-@property (nonatomic, retain) NSMutableArray *urlList;
+@property (nonatomic, strong) NSMutableArray *urlList;
 
 + (XAIImageCacheQueue *)sharedQueue;
 

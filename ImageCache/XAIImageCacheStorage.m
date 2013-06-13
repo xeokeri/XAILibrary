@@ -39,7 +39,13 @@
         self.cacheIntervalNumberOfDays = kXAIImageCacheFlushInterval;
         
         /** Set the cache storage. */
-        self.cacheStorage  = [[NSCache alloc] init];
+        NSCache *memoryCache = [[NSCache alloc] init];
+        
+        self.cacheStorage  = memoryCache;
+        
+        #if !__has_feature(objc_arc)
+            [memoryCache release];
+        #endif
     }
     
     return self;

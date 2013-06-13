@@ -29,13 +29,9 @@ typedef enum {
 } XAIImageCacheStatusType;
 
 @interface XAIImageCacheOperation : NSOperation <NSURLConnectionDataDelegate> {
-    id __unsafe_unretained delegateView;
-    
-    @protected
-    BOOL operationExecuting;
-    BOOL operationFinished;
-    
     @private
+    id <XAIImageCacheDelegate> __weak delegateView;
+    
     NSMutableData   *receivedData;
     NSString        *downloadURL;
     NSPort          *downloadPort;
@@ -45,9 +41,13 @@ typedef enum {
     CGSize containerSize;
     
     BOOL loadImageResized;
+    
+    @protected
+    BOOL operationExecuting;
+    BOOL operationFinished;
 }
 
-@property (nonatomic, unsafe_unretained) id delegateView;
+@property (nonatomic, weak) id <XAIImageCacheDelegate> delegateView;
 
 @property (nonatomic, strong) NSMutableData   *receivedData;
 @property (nonatomic, strong) NSString        *downloadURL;

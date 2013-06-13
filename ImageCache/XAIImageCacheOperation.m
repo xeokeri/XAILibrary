@@ -34,7 +34,7 @@
 
 @implementation XAIImageCacheOperation
 
-@synthesize delegateView = __delegateView;
+@synthesize delegateView = _delegateView;
 
 @synthesize receivedData, downloadURL, downloadConnection, downloadPort;
 @synthesize operationFinished, operationExecuting;
@@ -47,7 +47,7 @@
     self = [super init];
     
     if (self) {
-        __delegateView          = nil;
+        _delegateView           = nil;
         self.receivedData       = [NSMutableData data];
         self.operationExecuting = NO;
         self.operationFinished  = NO;
@@ -70,7 +70,7 @@
     self = [self init];
     
     if (self) {
-        __delegateView        = ([incomingDelegate isKindOfClass:[UITableView class]]) ? nil : incomingDelegate;
+        _delegateView         = ([incomingDelegate isKindOfClass:[UITableView class]]) ? nil : incomingDelegate;
         self.downloadURL      = imageURL;
         self.loadImageResized = imageResize;
     }
@@ -84,7 +84,7 @@
     self = [self init];
     
     if (self) {
-        __delegateView          = ([incomingDelegate isKindOfClass:[UITableView class]]) ? nil : incomingDelegate;
+        _delegateView           = ([incomingDelegate isKindOfClass:[UITableView class]]) ? nil : incomingDelegate;
         self.downloadURL        = imageURL;
         self.loadImageResized   = YES;
         self.containerSize      = imageSize;
@@ -99,7 +99,7 @@
     self = [self init];
     
     if (self) {
-        __delegateView          = ([incomingDelegate isKindOfClass:[UITableView class]]) ? nil : incomingDelegate;
+        _delegateView           = ([incomingDelegate isKindOfClass:[UITableView class]]) ? nil : incomingDelegate;
         self.downloadURL        = imageURL;
         self.loadImageResized   = (CGSizeZero.width == imageSize.width && CGSizeZero.height == imageSize.height) ? NO : YES;
         self.containerSize      = imageSize;
@@ -119,11 +119,7 @@
         [downloadPort release];
     #endif
     
-    receivedData       = nil;
-    downloadURL        = nil;
-    downloadConnection = nil;
-    downloadPort       = nil;
-    __delegateView     = nil;
+    delegateView  = nil;
     
     #if !__has_feature(objc_arc)
         [super dealloc];
@@ -137,16 +133,19 @@
     
     if (self.isCancelled) {
         [self updateOperationStatus];
+        
         return;
     }
     
     /** Configure the Container Size. */
     @try {
-        if ([__delegateView respondsToSelector:@selector(isKindOfClass:)]) {
-            if (__delegateView && [__delegateView isKindOfClass:[UIButton class]]) {
-                self.containerSize = ((UIButton *) __delegateView).frame.size;
-            } else if (__delegateView && [__delegateView isKindOfClass:[UIImageView class]]) {
-                self.containerSize = ((UIImageView *) __delegateView).frame.size;
+        id imageCacheDelegate = _delegateView;
+        
+        if (imageCacheDelegate && [imageCacheDelegate respondsToSelector:@selector(isKindOfClass:)]) {
+            if ([imageCacheDelegate isKindOfClass:[UIButton class]]) {
+                self.containerSize = ((UIButton *) imageCacheDelegate).frame.size;
+            } else if ([imageCacheDelegate isKindOfClass:[UIImageView class]]) {
+                self.containerSize = ((UIImageView *) imageCacheDelegate).frame.size;
             } else {
                 // Do nothing.
             }
@@ -236,7 +235,7 @@
 
 - (void)updateOperationStatus {
     /** Reset the delegate. */
-    __delegateView = nil;
+    _delegateView = nil;
     
     /** Remove the port. */
     [[NSRunLoop currentRunLoop] removePort:self.downloadPort forMode:NSDefaultRunLoopMode];
@@ -288,7 +287,7 @@
     UIImage *imageContent = [self dataAsUIImage];
     
     if (self.isCancelled) {
-        __delegateView = nil;
+        _delegateView = nil;
     } else {
         /** Load the image and store in the cache. */
         [self updateDelegateWithImage:imageContent cache:YES];
@@ -307,7 +306,7 @@
     }
     
     if (self.isCancelled) {
-        __delegateView = nil;
+        _delegateView = nil;
     } else {
         /** Make sure the image is cleared out. */
         [self updateDelegateWithImage:nil cache:NO];
@@ -320,15 +319,21 @@
 #pragma mark - Delegate View Callback
 
 - (void)updateDelegateWithImage:(UIImage *)imageContent cache:(BOOL)cacheStore {
-    UIImage *resizedImage = nil;
-    
     if (self.isCancelled) {
         [self updateOperationStatus];
         
         return;
     }
     
-    if (cacheStore == YES && imageContent != nil) {
+    UIImage *resizedImage = nil;
+    id imageCacheDelegate = _delegateView;
+    
+    // When image cache delegate or image content are nil, no further processing is needed.
+    if (!imageCacheDelegate || !imageContent) {
+        return;
+    }
+    
+    if (cacheStore == YES) {
         [[XAIImageCacheStorage sharedStorage] saveImage:imageContent forURL:self.downloadURL];
         
         NSString *cachedURL = [self.downloadURL cachedURLForImageSize:self.containerSize];
@@ -346,13 +351,7 @@
         }
     }
     
-    if (self.isCancelled) {
-        __delegateView = nil;
-        
-        return;
-    }
-    
-    if (self.shouldLoadImageResized && imageContent != nil) {
+    if (self.shouldLoadImageResized) {
         if (resizedImage == nil) {
             resizedImage = [imageContent resizeToFillSize:self.containerSize];
         }
@@ -360,52 +359,32 @@
         imageContent = resizedImage;
     }
     
-    if (self.isCancelled) {
-        __delegateView = nil;
-        
-        [self updateOperationStatus];
-        
-        return;
-    }
-    
     @try {
-        if (self.isCancelled) {
-            __delegateView = nil;
+        if ([imageCacheDelegate respondsToSelector:@selector(processCachedImage:atIndexPath:)]) {
+            [imageCacheDelegate processCachedImage:imageContent atIndexPath:self.containerIndexPath];
+        } else {
+            [UIView beginAnimations:@"XAIImageCacheLoadImageWithFade" context:nil];
+            [UIView setAnimationDuration:kXAIImageCacheFadeInDuration];
             
-            [self updateOperationStatus];
-            
-            return;
-        }
-        
-        if (__delegateView) {
-            if (self.isCancelled) {
-                [self updateOperationStatus];
-                
-                return;
+            if ([imageCacheDelegate respondsToSelector:@selector(setHidden:)]) {
+                [imageCacheDelegate setHidden:NO];
             }
             
-            if ([__delegateView respondsToSelector:@selector(processCachedImage:atIndexPath:)]) {
-                [__delegateView processCachedImage:imageContent atIndexPath:self.containerIndexPath];
+            if ([imageCacheDelegate respondsToSelector:@selector(processCachedImage:)]) {
+                [imageCacheDelegate processCachedImage:imageContent];
+            } else if ([imageCacheDelegate isKindOfClass:[UIButton class]]) {
+                [(UIButton *)imageCacheDelegate setImage:imageContent forState:UIControlStateNormal];
+            } else if ([imageCacheDelegate isKindOfClass:[UIImageView class]]) {
+                [(UIImageView *)imageCacheDelegate setImage:imageContent];
             } else {
-                [UIView beginAnimations:@"LoadImageWithFade" context:nil];
-                [UIView setAnimationDuration:kXAIImageCacheFadeInDuration];
-                
-                [__delegateView setHidden:NO];
-                
-                if ([__delegateView respondsToSelector:@selector(processCachedImage:)]) {
-                    [__delegateView processCachedImage:imageContent];
-                } else if ([__delegateView isKindOfClass:[UIButton class]]) {
-                    [__delegateView setImage:imageContent forState:UIControlStateNormal];
-                } else if ([__delegateView isKindOfClass:[UIImageView class]]) {
-                    [__delegateView setImage:imageContent];
-                } else {
-                    // Do nothing.
-                }
-                
-                [__delegateView setAlpha:1.0f];
-                
-                [UIView commitAnimations];
+                // Do nothing.
             }
+            
+            if ([imageCacheDelegate respondsToSelector:@selector(setAlpha:)]) {
+                [imageCacheDelegate setAlpha:1.0f];
+            }
+            
+            [UIView commitAnimations];
         }
     } @catch (NSException *exception) {
         [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
