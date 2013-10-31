@@ -67,7 +67,6 @@
 #pragma mark - Init for Blocks.
 
 - (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL usingBlock:(XAIImageCacheOperationBlock)callback {
-
     self = [self init];
     
     if (self) {
@@ -153,8 +152,22 @@
     
     // Check for the callback block.
     if (self.operationBlock) {
+        // Check to see if the image is already cached, before trying to request it.
+        UIImage *cachedImage = [[XAIImageCacheStorage sharedStorage] cachedImageForURL:self.downloadURL];
+    
+        // Verify the cached image exists.
+        if (cachedImage) {
+            // Process callback.
+            self.operationBlock(cachedImage, nil);
+            
+            // Update the operation status to complete.
+            [self updateOperationStatusForBlock];
+            
+            return;
+        }
+        
         /** Set the request and the connection. */
-        NSURLRequest *request   = [[NSURLRequest alloc] initWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@%@", self.downloadURL, @""]] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:kXAIImageCacheTimeoutInterval];
+        NSURLRequest *request   = [[NSURLRequest alloc] initWithURL:[NSURL URLWithString:self.downloadURL] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:kXAIImageCacheTimeoutInterval];
         NSOperationQueue *queue = [[NSOperationQueue alloc] init];
         
         // Download the image asynchronously.
