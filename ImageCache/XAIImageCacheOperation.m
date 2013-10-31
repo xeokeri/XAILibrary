@@ -27,6 +27,7 @@
 - (void)checkOperationStatus;
 - (void)changeStatus:(BOOL)status forType:(XAIImageCacheStatusType)type;
 - (void)updateOperationStatus;
+- (void)updateOperationStatusForBlock;
 - (void)updateDelegateWithImage:(UIImage *)imageContent cache:(BOOL)cacheStore;
 - (UIImage *)dataAsUIImage;
 
@@ -34,7 +35,8 @@
 
 @implementation XAIImageCacheOperation
 
-@synthesize delegateView = _delegateView;
+@synthesize delegateView   = _delegateView;
+@synthesize operationBlock = _operationBlock;
 
 @synthesize receivedData, downloadURL, downloadConnection, downloadPort;
 @synthesize operationFinished, operationExecuting;
@@ -48,13 +50,29 @@
     
     if (self) {
         _delegateView           = nil;
+        
+        self.downloadPort       = [NSPort port];
         self.receivedData       = [NSMutableData data];
         self.operationExecuting = NO;
         self.operationFinished  = NO;
         self.queuePriority      = NSOperationQueuePriorityVeryLow;
         self.containerSize      = CGSizeZero;
         self.containerIndexPath = nil;
-        self.downloadPort       = [NSPort port];
+        self.operationBlock     = NULL;
+    }
+    
+    return self;
+}
+
+#pragma mark - Init for Blocks.
+
+- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL usingBlock:(XAIImageCacheOperationBlock)callback {
+
+    self = [self init];
+    
+    if (self) {
+        self.downloadURL    = imageURL;
+        self.operationBlock = callback;
     }
     
     return self;
@@ -119,7 +137,8 @@
         [downloadPort release];
     #endif
     
-    delegateView  = nil;
+    delegateView   = nil;
+    operationBlock = NULL;
     
     #if !__has_feature(objc_arc)
         [super dealloc];
@@ -129,7 +148,51 @@
 #pragma mark - NSOperation Start
 
 - (void)start {
+    // Start the execution.
     [self changeStatus:YES forType:kXAIImageCacheStatusTypeExecuting];
+    
+    // Check for the callback block.
+    if (self.operationBlock) {
+        /** Set the request and the connection. */
+        NSURLRequest *request   = [[NSURLRequest alloc] initWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@%@", self.downloadURL, @""]] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:kXAIImageCacheTimeoutInterval];
+        NSOperationQueue *queue = [[NSOperationQueue alloc] init];
+        
+        // Download the image asynchronously.
+        [NSURLConnection sendAsynchronousRequest:request queue:queue completionHandler:^(NSURLResponse *response, NSData *data, NSError *connectionError) {
+            NSHTTPURLResponse
+                *httpResponse = (NSHTTPURLResponse *) response;
+            
+            NSString
+                *requestURL   = [[response URL] absoluteString];
+            
+            UIImage
+                *imageContent = nil;
+            
+            // Check for errors.
+            if (connectionError != nil) {
+                // Log any errors.
+                [connectionError logDetailsFailedOnSelector:_cmd line:__LINE__];
+            } else {
+                // Check for a valid HTTP status code.
+                if ([httpResponse statusCode] == 200) {
+                    imageContent = [UIImage imageWithData:data scale:[[UIScreen mainScreen] scale]];
+                }
+            }
+            
+            // Cache the image as needed.
+            if (imageContent != nil) {
+                [[XAIImageCacheStorage sharedStorage] saveImage:imageContent forURL:requestURL];
+            }
+            
+            // Process callback.
+            self.operationBlock(imageContent, connectionError);
+            
+            // Update the operation status to complete.
+            [self updateOperationStatusForBlock];
+        }];
+        
+        return;
+    }
     
     if (self.isCancelled) {
         [self updateOperationStatus];
@@ -244,6 +307,11 @@
     
     [[XAIImageCacheQueue sharedQueue] removeURL:self.downloadURL];
     
+    [self changeStatus:YES forType:kXAIImageCacheStatusTypeFinished];
+    [self changeStatus:NO forType:kXAIImageCacheStatusTypeExecuting];
+}
+
+- (void)updateOperationStatusForBlock {
     [self changeStatus:YES forType:kXAIImageCacheStatusTypeFinished];
     [self changeStatus:NO forType:kXAIImageCacheStatusTypeExecuting];
 }

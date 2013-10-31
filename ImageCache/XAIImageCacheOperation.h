@@ -28,9 +28,13 @@ typedef enum {
     kXAIImageCacheStatusTypeExecuting = 1
 } XAIImageCacheStatusType;
 
+/** XAIImageCacheOperationBlock */
+typedef void (^XAIImageCacheOperationBlock)(UIImage *img, NSError *err);
+
 @interface XAIImageCacheOperation : NSOperation <NSURLConnectionDataDelegate> {
     @private
-    id <XAIImageCacheDelegate> __weak delegateView;
+    id <XAIImageCacheDelegate>  __weak delegateView;
+    XAIImageCacheOperationBlock __weak operationBlock;
     
     NSMutableData   *receivedData;
     NSString        *downloadURL;
@@ -48,6 +52,7 @@ typedef enum {
 }
 
 @property (nonatomic, weak) id <XAIImageCacheDelegate> delegateView;
+@property (nonatomic, weak) XAIImageCacheOperationBlock operationBlock;
 
 @property (nonatomic, strong) NSMutableData   *receivedData;
 @property (nonatomic, strong) NSString        *downloadURL;
@@ -62,6 +67,7 @@ typedef enum {
 
 @property (nonatomic, getter = shouldLoadImageResized) BOOL loadImageResized;
 
+- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL usingBlock:(XAIImageCacheOperationBlock)callback;
 - (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id)incomingDelegate;
 - (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id)incomingDelegate resize:(BOOL)imageResize;
 - (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id)incomingDelegate size:(CGSize)imageSize;
