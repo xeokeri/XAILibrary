@@ -58,7 +58,7 @@
         self.queuePriority      = NSOperationQueuePriorityVeryLow;
         self.containerSize      = CGSizeZero;
         self.containerIndexPath = nil;
-        self.operationBlock     = NULL;
+        self.operationBlock     = nil;
     }
     
     return self;
@@ -151,7 +151,7 @@
     [self changeStatus:YES forType:kXAIImageCacheStatusTypeExecuting];
     
     // Check for the callback block.
-    if (self.operationBlock) {
+    if (self.operationBlock != nil) {
         // Check to see if the image is already cached, before trying to request it.
         UIImage *cachedImage = [[XAIImageCacheStorage sharedStorage] cachedImageForURL:self.downloadURL];
     
@@ -197,8 +197,11 @@
                 [[XAIImageCacheStorage sharedStorage] saveImage:imageContent forURL:requestURL];
             }
             
-            // Process callback.
-            self.operationBlock(imageContent, connectionError);
+            // Check for the callback block.
+            if (self.operationBlock != nil) {
+                // Process callback.
+                self.operationBlock(imageContent, connectionError);
+            }
             
             // Update the operation status to complete.
             [self updateOperationStatusForBlock];
@@ -325,6 +328,9 @@
 }
 
 - (void)updateOperationStatusForBlock {
+    /** Clear out the operation callback. */
+    _operationBlock = nil;
+    
     [self changeStatus:YES forType:kXAIImageCacheStatusTypeFinished];
     [self changeStatus:NO forType:kXAIImageCacheStatusTypeExecuting];
 }
@@ -368,7 +374,8 @@
     UIImage *imageContent = [self dataAsUIImage];
     
     if (self.isCancelled) {
-        _delegateView = nil;
+        _delegateView   = nil;
+        _operationBlock = nil;
     } else {
         /** Load the image and store in the cache. */
         [self updateDelegateWithImage:imageContent cache:YES];
@@ -387,7 +394,8 @@
     }
     
     if (self.isCancelled) {
-        _delegateView = nil;
+        _delegateView   = nil;
+        _operationBlock = nil;
     } else {
         /** Make sure the image is cleared out. */
         [self updateDelegateWithImage:nil cache:NO];

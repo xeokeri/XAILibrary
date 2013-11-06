@@ -34,7 +34,7 @@ typedef void (^XAIImageCacheOperationBlock)(UIImage *img, NSError *err);
 @interface XAIImageCacheOperation : NSOperation <NSURLConnectionDataDelegate> {
     @private
     id <XAIImageCacheDelegate>  __weak delegateView;
-    XAIImageCacheOperationBlock __weak operationBlock;
+    XAIImageCacheOperationBlock        operationBlock;
     
     NSMutableData   *receivedData;
     NSString        *downloadURL;
@@ -51,8 +51,8 @@ typedef void (^XAIImageCacheOperationBlock)(UIImage *img, NSError *err);
     BOOL operationFinished;
 }
 
-@property (nonatomic, weak) id <XAIImageCacheDelegate> delegateView;
-@property (nonatomic, weak) XAIImageCacheOperationBlock operationBlock;
+@property (nonatomic, weak) id <XAIImageCacheDelegate>  delegateView;
+@property (nonatomic, copy) XAIImageCacheOperationBlock operationBlock;
 
 @property (nonatomic, strong) NSMutableData   *receivedData;
 @property (nonatomic, strong) NSString        *downloadURL;
