@@ -250,10 +250,10 @@
     [fetchRequest setFetchBatchSize:20];
     
     // Edit the sort key as appropriate.
-    NSArray *sortDescriptors = [NSArray array];
+    NSArray *sortDescriptors = [[NSArray alloc] init];
     
     if (self.filterSectionKeyPath) {
-        NSArray *sortFilters = [NSArray arrayWithObjects:self.filterSectionKeyPath, self.filterSortKey, nil];
+        NSArray *sortFilters = [[NSArray alloc] initWithObjects:self.filterSectionKeyPath, self.filterSortKey, nil];
         NSMutableArray *groupedSortDescriptors = [[NSMutableArray alloc] init];
         
         for (NSString *sortFilter in sortFilters) {
@@ -262,15 +262,16 @@
             [groupedSortDescriptors addObject:filterDescriptor];
         }
         
-        sortDescriptors = [NSArray arrayWithArray:groupedSortDescriptors];
+        sortDescriptors = [[NSArray alloc] initWithArray:groupedSortDescriptors];
         
         #if !__has_feature(objc_arc)
             [groupedSortDescriptors release];
+            [sortFilters release];
         #endif
     } else {
         NSSortDescriptor *filterSortKeyDescriptor = [[NSSortDescriptor alloc] initWithKey:self.filterSortKey ascending:self.isFilterSortOrderAscending];
         
-        sortDescriptors = [NSArray arrayWithObjects:filterSortKeyDescriptor, nil];
+        sortDescriptors = [[NSArray alloc] initWithObjects:filterSortKeyDescriptor, nil];
         
         #if !__has_feature(objc_arc)
             [filterSortKeyDescriptor release];
@@ -278,6 +279,10 @@
     }
     
     [fetchRequest setSortDescriptors:sortDescriptors];
+    
+    #if !__has_feature(objc_arc)
+        [sortDescriptors release];
+    #endif
     
     if (!fetchRequest) {
         if (kXAIDataStorageDebugging) {

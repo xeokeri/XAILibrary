@@ -140,6 +140,7 @@ static XAIDataStorage *dataStorageInstance;
         return __managedObjectContext;
     }
     
+    // TODO: Migrate to use dispatch_once across the whole library code base.
     @synchronized(self) {
         NSPersistentStoreCoordinator *coordinator = [self persistentStoreCoordinator];
         
@@ -170,6 +171,7 @@ static XAIDataStorage *dataStorageInstance;
         return __managedObjectModel;
     }
     
+    // TODO: Migrate to use dispatch_once across the whole library code base.
     @synchronized(self) {
         NSURL *modelURL = [[NSBundle mainBundle] URLForResource:kXAIDataStorageModelName withExtension:@"momd"];
         
@@ -188,15 +190,21 @@ static XAIDataStorage *dataStorageInstance;
         return __persistentStoreCoordinator;
     }
     
+    // TODO: Migrate to use dispatch_once across the whole library code base.
     @synchronized(self) {
-        NSError *error        = nil;
-        NSString *storePath   = [NSString applicationPathForFileName:kXAIDataStorageModelName ofType:@"sqlite"];
-        NSURL *storeURL       = [[NSURL alloc] initFileURLWithPath:storePath];
-        NSDictionary *options = @{NSMigratePersistentStoresAutomaticallyOption: @YES, NSInferMappingModelAutomaticallyOption: @YES};
-        
         __persistentStoreCoordinator = [[NSPersistentStoreCoordinator alloc] initWithManagedObjectModel:[self managedObjectModel]];
         
-        if (![__persistentStoreCoordinator addPersistentStoreWithType:NSSQLiteStoreType configuration:nil URL:storeURL options:options error:&error]) {
+        // Disabling the WAL setting.
+        // TODO: Update to handle the iOS 7 WAL settings and remove this in the future.
+        NSMutableDictionary *pragmaOptions = [[NSMutableDictionary alloc] initWithObjectsAndKeys:@"DELETE", @"journal_mode", nil];
+        
+        // Base persistance settings.
+        NSDictionary *storageOptions       = @{NSMigratePersistentStoresAutomaticallyOption: @YES, NSInferMappingModelAutomaticallyOption: @YES, NSSQLitePragmasOption: pragmaOptions};
+        NSError *persistantStoreLoadError  = nil;
+        NSString *persistantStorePath      = [NSString applicationPathForFileName:kXAIDataStorageModelName ofType:@"sqlite"];
+        NSURL *persistantStoreURL          = [[NSURL alloc] initFileURLWithPath:persistantStorePath];
+        
+        if (![__persistentStoreCoordinator addPersistentStoreWithType:NSSQLiteStoreType configuration:nil URL:persistantStoreURL options:storageOptions error:&persistantStoreLoadError]) {
             /*
              Replace this implementation with code to handle the error appropriately.
              
@@ -220,7 +228,7 @@ static XAIDataStorage *dataStorageInstance;
              Lightweight migration will only work for a limited set of schema changes; consult "Core Data Model Versioning and Data Migration Programming Guide" for details.
              
              */
-            NSLog(@"Unresolved error %@, %@", error, [error userInfo]);
+            NSLog(@"Unresolved error %@, %@", persistantStoreLoadError, [persistantStoreLoadError userInfo]);
             abort();
         }
     }
