@@ -14,6 +14,10 @@
 #import "NSError+XAILogging.h"
 #import "NSException+XAILogging.h"
 
+/** XAIUtilities */
+#import "NSString+XAIUtilities.h"
+#import "NSURL+XAIUtilities.h"
+
 /** Shared Instance */
 static XAIDataStorage *dataStorageInstance;
 
@@ -185,26 +189,12 @@ static XAIDataStorage *dataStorageInstance;
     }
     
     @synchronized(self) {
-        NSString *storeName        = [NSString stringWithFormat:@"%@.sqlite", kXAIDataStorageModelName];
-        NSString *storePath        = [[self applicationDocumentsDirectoryPath] stringByAppendingPathComponent:storeName];
-        NSFileManager *fileManager = [NSFileManager defaultManager];
-        NSError *error             = nil;
-        
-        if (![fileManager fileExistsAtPath:storePath]) {
-            NSString *defaultStorePath = [[NSBundle mainBundle] pathForResource:kXAIDataStorageModelName ofType:@"sqlite"];
-            
-            if (defaultStorePath) {
-                if (![fileManager copyItemAtPath:defaultStorePath toPath:storePath error:&error]) {
-                    NSLog(@"Unresolved error %@, %@", error, [error userInfo]);
-                }
-            }
-        }
-        
-        NSURL *storeURL = [[self applicationDocumentsDirectory] URLByAppendingPathComponent:storeName];
+        NSError *error        = nil;
+        NSString *storePath   = [NSString applicationPathForFileName:kXAIDataStorageModelName ofType:@"sqlite"];
+        NSURL *storeURL       = [[NSURL alloc] initFileURLWithPath:storePath];
+        NSDictionary *options = @{NSMigratePersistentStoresAutomaticallyOption: @YES, NSInferMappingModelAutomaticallyOption: @YES};
         
         __persistentStoreCoordinator = [[NSPersistentStoreCoordinator alloc] initWithManagedObjectModel:[self managedObjectModel]];
-        
-        NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithBool:YES], NSMigratePersistentStoresAutomaticallyOption, [NSNumber numberWithBool:YES], NSInferMappingModelAutomaticallyOption, nil];
         
         if (![__persistentStoreCoordinator addPersistentStoreWithType:NSSQLiteStoreType configuration:nil URL:storeURL options:options error:&error]) {
             /*
@@ -236,26 +226,6 @@ static XAIDataStorage *dataStorageInstance;
     }
     
     return __persistentStoreCoordinator;
-}
-
-#pragma mark - Application's Documents directory
-
-/**
- Returns the URL to the application's Documents directory.
- */
-- (NSURL *)applicationDocumentsDirectory {
-    return [[[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask] lastObject];
-}
-
-/**
- Returns the base path to the applications's Document directory. (For use with prepoplated SQLite file)
- */
-- (NSString *)applicationDocumentsDirectoryPath {
-    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-    
-    NSString *basePath = ([paths count] > 0) ? [paths objectAtIndex:0] : nil;
-    
-    return basePath;
 }
 
 @end

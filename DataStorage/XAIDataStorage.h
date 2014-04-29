@@ -28,6 +28,5 @@
 - (void)saveContext;
 - (void)lockContext;
 - (void)unlockContext;
-- (NSURL *)applicationDocumentsDirectory;
 
 @end
