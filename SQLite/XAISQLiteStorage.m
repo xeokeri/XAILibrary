@@ -7,28 +7,18 @@
 //
 
 #import "XAISQLiteStorage.h"
+#import "XAISQLiteQueryString.h"
 #import "XAISQLiteDefines.h"
 
 /** XAIUtilities */
 #import "NSString+XAIUtilities.h"
 
-/** NSString - Shared */
-#define kXAISQLiteStorageQueryLineSeparator @"\n"
-
 @interface XAISQLiteStorage()
 
 - (NSString *)prepareBindPlaceholdersForLength:(NSUInteger)bindLength;
 - (NSArray *)fetchResultsWithQuery:(NSString *)aQuery withBindValues:(NSArray *)values;
-- (NSArray *)bindPartsForColumnNames:(NSArray *)columnNames;
 - (NSDictionary *)nextRowForStatement:(sqlite3_stmt *)aStatement;
 - (BOOL)performQuery:(NSString *)aQuery withBindValues:(NSArray *)values;
-- (void)appendQuery:(NSMutableString *)aQuery tableName:(NSString *)aTableName;
-- (void)appendQuery:(NSMutableString *)aQuery tableName:(NSString *)aTableName includeFromPrefix:(BOOL)includePrefix;
-- (void)appendQuery:(NSMutableString *)aQuery fieldNames:(NSArray *)columnNames;
-- (void)appendQuery:(NSMutableString *)aQuery fieldNames:(NSArray *)columnNames keyedColumns:(BOOL)keysAsColumns;
-- (void)appendQuery:(NSMutableString *)aQuery setColumnNames:(NSArray *)columnNames;
-- (void)appendQuery:(NSMutableString *)aQuery whereColumnNames:(NSArray *)columnNames;
-- (void)appendQuery:(NSMutableString *)aQuery limit:(NSUInteger)aLimit offset:(NSUInteger)anOffset;
 - (void)bindValues:(NSArray *)objValues toStatement:(sqlite3_stmt *)aStatement;
 - (void)bindValues:(NSArray *)objValues toStatement:(sqlite3_stmt *)aStatement forRow:(int)rowIndex;
 
@@ -73,16 +63,16 @@
 
 - (NSArray *)fetchResultsWithArray:(NSArray *)anArray forTable:(NSString *)aTable limit:(NSUInteger)rowLimit offset:(NSUInteger)offset {
     // Add the initial SELECT.
-    NSMutableString *aQuery = [[NSMutableString alloc] initWithString:@"SELECT"];
+    XAISQLiteQueryString *aQuery = [[XAISQLiteQueryString alloc] initWithString:@"SELECT"];
     
     // Add SELECT fields, as needed.
-    [self appendQuery:aQuery fieldNames:anArray];
+    [aQuery appendFieldNames:anArray];
     
     // Add the FROM table.
-    [self appendQuery:aQuery tableName:aTable];
+    [aQuery appendTableName:aTable];
     
     // Append the LIMIT/OFFSET to the query.
-    [self appendQuery:aQuery limit:rowLimit offset:offset];
+    [aQuery appendLimit:rowLimit offset:offset];
     
     // Fetch the results with the formatted query.
     return [self fetchResultsWithQuery:aQuery];
@@ -105,19 +95,19 @@
         *columnValues = [aDict allValues]; // Column values to bind the parameter placeholders to.
     
     // Add the initial SELECT.
-    NSMutableString *aQuery = [[NSMutableString alloc] initWithString:@"SELECT"];
+    XAISQLiteQueryString *aQuery = [[XAISQLiteQueryString alloc] initWithString:@"SELECT"];
     
     // Add SELECT fields, as needed.
-    [self appendQuery:aQuery fieldNames:columnNames keyedColumns:keysAsColumns];
+    [aQuery appendFieldNames:columnNames keyedColumns:keysAsColumns];
     
     // Add the FROM table.
-    [self appendQuery:aQuery tableName:aTable];
+    [aQuery appendTableName:aTable];
     
     // Append WHERE/AND params and binding content as needed.
-    [self appendQuery:aQuery whereColumnNames:columnNames];
+    [aQuery appendWhereColumnNames:columnNames];
     
     // Append the LIMIT/OFFSET to the query.
-    [self appendQuery:aQuery limit:rowLimit offset:offset];
+    [aQuery appendLimit:rowLimit offset:offset];
     
     // Fetch the results with the formatted query.
     return [self fetchResultsWithQuery:aQuery withBindValues:columnValues];
@@ -178,24 +168,6 @@
     }
     
     return nil;
-}
-
-- (NSArray *)bindPartsForColumnNames:(NSArray *)columnNames {
-    // Check to see if the bind parameters need to be added.
-    if ([columnNames count] == 0) {
-        return nil;
-    }
-    
-    NSMutableArray *queryParts = [[NSMutableArray alloc] initWithCapacity:[columnNames count]];
-    
-    // Prepare the column names for the various parts to bind to.
-    for (NSString *aColumnName in columnNames) {
-        NSString *preparePart = [[NSString alloc] initWithFormat:@"%@`%@` = ?", kXAISQLiteStorageQueryLineSeparator, aColumnName];
-        
-        [queryParts addObject:preparePart];
-    }
-    
-    return queryParts;
 }
 
 #pragma mark - NSDictionary
@@ -375,13 +347,13 @@
        *columnValues = [aDict allValues];
     
     // Start the DELETE query.
-    NSMutableString *aQuery = [[NSMutableString alloc] initWithString:@"DELETE"];
+    XAISQLiteQueryString *aQuery = [[XAISQLiteQueryString alloc] initWithString:@"DELETE"];
     
     // Add the FROM table.
-    [self appendQuery:aQuery tableName:aTable];
+    [aQuery appendTableName:aTable];
     
     // Append WHERE/AND params and binding content as needed.
-    [self appendQuery:aQuery whereColumnNames:columnNames];
+    [aQuery appendWhereColumnNames:columnNames];
     
     // Add the ending delimiter.
     [aQuery appendString:@";"];
@@ -426,16 +398,16 @@
     [bindValues addObjectsFromArray:selectValues];
     
     // Start the UPDATE query.
-    NSMutableString *aQuery = [[NSMutableString alloc] initWithString:@"UPDATE"];
+    XAISQLiteQueryString *aQuery = [[XAISQLiteQueryString alloc] initWithString:@"UPDATE"];
     
     // Add the FROM table.
-    [self appendQuery:aQuery tableName:aTable includeFromPrefix:NO];
+    [aQuery appendTableName:aTable includeFromPrefix:NO];
     
     // Add the SET params and binding content as needed.
-    [self appendQuery:aQuery setColumnNames:updateNames];
+    [aQuery appendSetColumnNames:updateNames];
     
     // Append WHERE/AND params and binding content as needed.
-    [self appendQuery:aQuery whereColumnNames:selectNames];
+    [aQuery appendWhereColumnNames:selectNames];
     
     // Add the ending delimiter.
     [aQuery appendString:@";"];
@@ -507,74 +479,6 @@
     }
     
     return [[NSString alloc] initWithFormat:@"(%@)", filteredBindContent];
-}
-
-#pragma mark - NSMutableString - Append SELECT
-
-- (void)appendQuery:(NSMutableString *)aQuery fieldNames:(NSArray *)columnNames {
-    [self appendQuery:aQuery fieldNames:columnNames keyedColumns:YES];
-}
-
-- (void)appendQuery:(NSMutableString *)aQuery fieldNames:(NSArray *)columnNames keyedColumns:(BOOL)keysAsColumns {
-    // Check to see if specific fields (columns) should be returned, or all fields.
-    if ((keysAsColumns == YES) && ((columnNames != nil) && ([columnNames count] > 0))) {
-        [aQuery appendFormat:@"%@`%@`", kXAISQLiteStorageQueryLineSeparator, [columnNames componentsJoinedByString:@"`, `"]];
-    } else {
-        [aQuery appendFormat:@"%@*", kXAISQLiteStorageQueryLineSeparator];
-    }
-}
-
-#pragma mark - NSMutableString - Append TABLE
-
-- (void)appendQuery:(NSMutableString *)aQuery tableName:(NSString *)aTableName {
-    [self appendQuery:aQuery tableName:aTableName includeFromPrefix:YES];
-}
-
-- (void)appendQuery:(NSMutableString *)aQuery tableName:(NSString *)aTableName includeFromPrefix:(BOOL)includePrefix {
-    [aQuery appendFormat:@"%@%@`%@`", ((includePrefix) ? kXAISQLiteStorageQueryLineSeparator : @" "), ((includePrefix) ? @"FROM " : @""), aTableName];
-}
-
-#pragma mark - NSMutableString - Append SET
-
-- (void)appendQuery:(NSMutableString *)aQuery setColumnNames:(NSArray *)columnNames {
-    NSArray *queryParts = [self bindPartsForColumnNames:columnNames];
-    
-    // Check to see if the SET values need to be appended.
-    if ([queryParts count] > 0) {
-        // Add in the query parts, for the prepare statement binding.
-        [aQuery appendFormat:@"%@SET %@", kXAISQLiteStorageQueryLineSeparator, [queryParts componentsJoinedByString:@", "]];
-    }
-}
-
-#pragma mark - NSMutableString - Append WHERE/AND
-
-- (void)appendQuery:(NSMutableString *)aQuery whereColumnNames:(NSArray *)columnNames {
-    NSArray *queryParts = [self bindPartsForColumnNames:columnNames];
-    
-    // Check to see if the WHERE values need to be appended.
-    if ([queryParts count] > 0) {
-        NSString *joinContent = [[NSString alloc] initWithFormat:@"%@AND", kXAISQLiteStorageQueryLineSeparator];
-        
-        // Add in the query parts, for the prepare statement binding.
-        [aQuery appendFormat:@"%@WHERE %@", kXAISQLiteStorageQueryLineSeparator, [queryParts componentsJoinedByString:joinContent]];
-    }
-}
-
-#pragma mark - NSMutableString - Append OFFSET/LIMIT
-
-- (void)appendQuery:(NSMutableString *)aQuery limit:(NSUInteger)aLimit offset:(NSUInteger)anOffset {
-    // Check to see if the LIMIT needs to be added.
-    if (aLimit != NSNotFound) {
-        [aQuery appendFormat:@"%@LIMIT %ld", kXAISQLiteStorageQueryLineSeparator, aLimit];
-    }
-    
-    // Check to see if the OFFSET needs to be added.
-    if (anOffset != NSNotFound) {
-        [aQuery appendFormat:@"%@OFFSET %ld", kXAISQLiteStorageQueryLineSeparator, anOffset];
-    }
-    
-    // Add the ending delimiter.
-    [aQuery appendString:@";"];
 }
 
 #pragma mark - SQLite3 Statement Bind

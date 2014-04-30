@@ -15,3 +15,6 @@
 #ifndef kXAISQLiteStorageName
     #define kXAISQLiteStorageName                   @"DatabaseNameHere"
 #endif
+
+/** NSString - Shared */
+#define kXAISQLiteStorageQueryLineSeparator         @"\n"
