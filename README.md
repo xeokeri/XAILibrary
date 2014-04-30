@@ -28,6 +28,15 @@ A UIImage caching mechanism, that is configurable. Currently supports flushing o
 ###Note:
 I am currently using this on a UIImageView in a UITableView cell. It can be used on any UIImageView. It will then use NSOperationQueue, NSOperation, and NSURLConnection to fetch the image, then save to cache. If the image already exists in the cache, based on the URL string, it will use that first and bypass the NSOperationQueue completely.
 
+#XAIDataStorage
+
+Core Data library for multithreaded merging, fetching, and more. With notification support.
+
+
+#XAISQLiteStorage
+
+SQLite3 library for fetching, updating, inserting, and deleting records.
+
 #XAILogging
 
 I use this logging for a bit of CoreData debugging, as well as any other NSError or NSException console logging.
