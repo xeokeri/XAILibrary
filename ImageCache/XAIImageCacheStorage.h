@@ -8,25 +8,24 @@
 
 #import <Foundation/Foundation.h>
 
-enum XAIImageCacheStorageFlushInterval {
+typedef NS_ENUM(NSUInteger, XAIImageCacheStorageFlushInterval) {
+    XAIImageCacheStorageFlushIntervalDay         = 1,
     XAIImageCacheStorageFlushIntervalWeek        = 7,
     XAIImageCacheStorageFlushIntervalMonth       = 30,
     XAIImageCacheStorageFlushIntervalYearQuarter = (XAIImageCacheStorageFlushIntervalMonth * 3), /** 90 */
     XAIImageCacheStorageFlushIntervalYearHalf    = (XAIImageCacheStorageFlushIntervalYearQuarter * 2), /** 180 */
     XAIImageCacheStorageFlushIntervalYearFull    = 365
-} XAIImageCacheStorageFlushIntervals;
-
-typedef NSUInteger XAIImageCacheStorageFlushInterval;
+};
 
 @interface XAIImageCacheStorage : NSObject {
     @protected
-    NSUInteger cacheIntervalNumberOfDays;
+    XAIImageCacheStorageFlushInterval cacheIntervalNumberOfDays;
     
     @private
     NSCache *cacheStorage;
 }
 
-@property (nonatomic) NSUInteger cacheIntervalNumberOfDays;
+@property (nonatomic) XAIImageCacheStorageFlushInterval cacheIntervalNumberOfDays;
 
 + (XAIImageCacheStorage *)sharedStorage;
 

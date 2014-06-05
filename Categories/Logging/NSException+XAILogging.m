@@ -21,10 +21,10 @@
     NSArray *exceptions = [[self userInfo] objectForKey:NSDetailedErrorsKey];
     
     for (NSError *detailedException in exceptions) {
-        NSLog(@"Exception: %@, %@, Line %d, %@", exceptionOnClass, NSStringFromSelector(failedSelector), lineNumber, [[detailedException userInfo] valueForKey:NSValidationKeyErrorKey]);
+        NSLog(@"Exception: %@, %@, Line %lu, %@", exceptionOnClass, NSStringFromSelector(failedSelector), (unsigned long)lineNumber, [[detailedException userInfo] valueForKey:NSValidationKeyErrorKey]);
     }
     
-    NSLog(@"Exception: %@, %@, Line %d, %@\n %@", exceptionOnClass, NSStringFromSelector(failedSelector), lineNumber, [self reason], [self callStackSymbols]);
+    NSLog(@"Exception: %@, %@, Line %lu, %@\n %@", exceptionOnClass, NSStringFromSelector(failedSelector), (unsigned long)lineNumber, [self reason], [self callStackSymbols]);
 }
 
 @end

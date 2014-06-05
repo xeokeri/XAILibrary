@@ -22,7 +22,7 @@
     NSArray *conflictErrors      = [[self userInfo] objectForKey:NSPersistentStoreSaveConflictsErrorKey];
     NSString *validationErrorKey = [[self userInfo] objectForKey:NSValidationKeyErrorKey];
     
-    NSLog(@"Error: %@, Line %d, %@", NSStringFromSelector(failedSelector), lineNumber, [self localizedDescription]);
+    NSLog(@"Error: %@, Line %lu, %@", NSStringFromSelector(failedSelector), (unsigned long)lineNumber, [self localizedDescription]);
     
     if (validationErrorKey) {
         NSLog(@"Validation Error for key: %@\n%@", validationErrorKey, [[self userInfo] objectForKey:NSValidationObjectErrorKey]);
