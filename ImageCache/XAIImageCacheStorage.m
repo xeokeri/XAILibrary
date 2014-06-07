@@ -23,7 +23,7 @@
 
 @property (nonatomic, strong) NSCache *cacheStorage;
 
-- (NSString *)imagePathForURL:(NSString *)imageURL temporary:(BOOL)tempStorage;
+- (NSString *)imagePathWithURL:(NSString *)imageURL temporary:(BOOL)tempStorage;
 - (NSString *)filteredCachePathForTemporaryStorage:(BOOL)tempStorage;
 
 @end
@@ -102,15 +102,15 @@
 
 #pragma mark - NSURL - File Path
 
-- (NSURL *)filePathForURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
-    NSString *imagePath = [self imagePathForURL:imageURL temporary:tempStorage];
+- (NSURL *)filePathWithImageURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
+    NSString *imagePath = [self imagePathWithURL:imageURL temporary:tempStorage];
     
     return [[NSURL alloc] initFileURLWithPath:imagePath isDirectory:NO];
 }
 
 #pragma mark - NSString - Image Path
 
-- (NSString *)imagePathForURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
+- (NSString *)imagePathWithURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
     NSString
         *encodedName  = [imageURL md5HexEncode],
         *imagePathExt = [imageURL pathExtension],
@@ -152,7 +152,7 @@
                 NSLog(@"Checking disk.");
             }
             
-            NSString *imagePath   = [self imagePathForURL:imageURL temporary:tempStorage];
+            NSString *imagePath   = [self imagePathWithURL:imageURL temporary:tempStorage];
             NSData *imageContents = [NSData dataWithContentsOfFile:imagePath];
             
             cachedImage = [[UIImage alloc] initWithData:imageContents];
@@ -225,7 +225,7 @@
             ? UIImagePNGRepresentation(image)
             : ((tempStorage == YES || jpegOnly == YES) ? UIImageJPEGRepresentation(image, 1.0f) : UIImagePNGRepresentation(image));
         NSData *contentData = [[NSData alloc] initWithData:imageData];
-        NSString *imagePath = [self imagePathForURL:imageURL temporary:tempStorage];
+        NSString *imagePath = [self imagePathWithURL:imageURL temporary:tempStorage];
         
         // Check to see if the image contents was saved.
         didImageSave = [contentData writeToFile:imagePath atomically:!tempStorage];
@@ -368,7 +368,7 @@
     NSError *writeError                = nil;
     
     // Local file URL to delete.
-    NSURL *fileURL = [self filePathForURL:imageURL temporary:tempStorage];
+    NSURL *fileURL = [self filePathWithImageURL:imageURL temporary:tempStorage];
     
     // Use the file coordinator to ensure the file can be written and deleted.
     [fileCoordinator coordinateWritingItemAtURL:fileURL options:NSFileCoordinatorWritingForDeleting error:&writeError byAccessor:^(NSURL *filteredDeleteURL) {
