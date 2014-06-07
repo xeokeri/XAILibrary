@@ -12,22 +12,6 @@
 
 @implementation NSString (XAIImageCache)
 
-- (NSString *)md5HexEncode {
-    const char *input = [self UTF8String];
-    
-    unsigned char result[CC_MD5_DIGEST_LENGTH];
-    
-    CC_MD5(input, strlen(input), result);
-    
-    NSMutableString *encryptedResult = [NSMutableString stringWithCapacity:CC_MD5_DIGEST_LENGTH * 2];
-    
-    for (int i = 0; i < CC_MD5_DIGEST_LENGTH; i++) {
-        [encryptedResult appendFormat:@"%02x", result[i]];
-    }
-    
-    return encryptedResult;
-}
-
 /** For use with resized images. */
 - (NSString *)cachedURLForImageSize:(CGSize)imageSize {
     return [NSString stringWithFormat:@"%@?width=%.2f&height=%.2f", self, floorf(imageSize.width), floorf(imageSize.height)];
