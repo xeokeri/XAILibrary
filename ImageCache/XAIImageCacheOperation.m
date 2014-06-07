@@ -21,7 +21,7 @@
 #import "NSError+XAILogging.h"
 #import "NSException+XAILogging.h"
 
-@interface XAIImageCacheOperation()
+@interface XAIImageCacheOperation() <NSURLConnectionDataDelegate>
 
 - (void)resetData;
 - (void)checkOperationStatus;
@@ -50,15 +50,14 @@
     
     if (self) {
         _delegateView           = nil;
-        
-        self.downloadPort       = [NSPort port];
-        self.receivedData       = [NSMutableData data];
-        self.operationExecuting = NO;
-        self.operationFinished  = NO;
+        self.operationBlock     = nil;
+        self.containerIndexPath = nil;
         self.queuePriority      = NSOperationQueuePriorityVeryLow;
         self.containerSize      = CGSizeZero;
-        self.containerIndexPath = nil;
-        self.operationBlock     = nil;
+        self.downloadPort       = [[NSPort alloc] init];
+        self.receivedData       = [[NSMutableData alloc] init];
+        self.operationExecuting = NO;
+        self.operationFinished  = NO;
     }
     
     return self;
@@ -136,8 +135,10 @@
         [downloadPort release];
     #endif
     
+    operationBlock = nil;
     delegateView   = nil;
-    operationBlock = NULL;
+    downloadPort   = nil;
+    receivedData   = nil;
     
     #if !__has_feature(objc_arc)
         [super dealloc];
@@ -422,6 +423,7 @@
         return;
     }
     
+    // Check to see if the image should be cached.
     if (cacheStore == YES) {
         [[XAIImageCacheStorage sharedStorage] saveImage:imageContent forURL:self.downloadURL];
         
