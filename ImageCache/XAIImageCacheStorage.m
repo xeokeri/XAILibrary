@@ -12,6 +12,9 @@
 /** XAIImageCache Categories */
 #import "NSString+XAIImageCache.h"
 
+/** XAIUtility Categories */
+#import "NSString+XAIUtilities.h"
+
 /** XAILogging */
 #import "NSError+XAILogging.h"
 #import "NSException+XAILogging.h"
@@ -21,6 +24,7 @@
 @property (nonatomic, strong) NSCache *cacheStorage;
 
 - (NSString *)imagePathForURL:(NSString *)imageURL temporary:(BOOL)tempStorage;
+- (NSString *)filteredCachePathForTemporaryStorage:(BOOL)tempStorage;
 
 @end
 
@@ -31,7 +35,7 @@
 
 #pragma mark - Init XAIImageCache
 
-- (id)init {
+- (instancetype)init {
     self = [super init];
     
     if (self) {
@@ -41,7 +45,7 @@
         /** Set the cache storage. */
         NSCache *memoryCache = [[NSCache alloc] init];
         
-        self.cacheStorage  = memoryCache;
+        self.cacheStorage = memoryCache;
         
         #if !__has_feature(objc_arc)
             [memoryCache release];
@@ -53,60 +57,79 @@
 
 + (XAIImageCacheStorage *)sharedStorage {
     static XAIImageCacheStorage *instanceStorage = nil;
+    static dispatch_once_t onceToken;
     
-    if (instanceStorage != nil) {
-        return instanceStorage;
-    }
-    
-    @synchronized(self) {
-        if (!instanceStorage) {
+    dispatch_once(&onceToken, ^{
+        #ifdef DEBUG
             NSAssert(instanceStorage == nil, @"InstanceStorage should be nil.");
+        #endif
+        
+        instanceStorage = [[self alloc] init];
+        
+        /** Create the image cache folders. */
+        NSError *error             = nil;
+        NSNumber *cacheStateTemp   = [[NSNumber alloc] initWithBool:YES];
+        NSNumber *cacheStatePerm   = [[NSNumber alloc] initWithBool:NO];
+        NSArray *cacheStates       = @[cacheStateTemp, cacheStatePerm];
+        NSFileManager *fileManager = [NSFileManager defaultManager];
+        
+        for (NSNumber *cacheState in cacheStates) {
+            NSString *cacheFolder = [instanceStorage filteredCachePathForTemporaryStorage:[cacheState boolValue]];
             
-            instanceStorage = [[self alloc] init];
-            
-            /** Create the image cache folder. */
-            NSError *error             = nil;
-            NSArray *cachePaths        = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
-            NSArray *cacheDirectories  = [NSArray arrayWithObjects:kXAIImageCacheDirectoryPathTemp, kXAIImageCacheDirectoryPathPerm, nil];
-            NSFileManager *fileManager = [NSFileManager defaultManager];
-            
-            for (NSString *directory in cacheDirectories) {
-                NSString *cacheFolder = [[cachePaths lastObject] stringByAppendingPathComponent:directory];
+            if (![fileManager fileExistsAtPath:cacheFolder]) {
+                [fileManager createDirectoryAtPath:cacheFolder withIntermediateDirectories:NO attributes:nil error:&error];
                 
-                if (![fileManager fileExistsAtPath:cacheFolder]) {
-                    [fileManager createDirectoryAtPath:cacheFolder withIntermediateDirectories:NO attributes:nil error:&error];
-                    
-                    if (error != nil) {
-                        [error logDetailsFailedOnSelector:_cmd line:__LINE__];
-                    }
+                if (error != nil) {
+                    [error logDetailsFailedOnSelector:_cmd line:__LINE__];
                 }
             }
         }
         
-        NSAssert(instanceStorage, @"'instanceStorage' should not be nil.");
-        NSAssert([instanceStorage isKindOfClass:[XAIImageCacheStorage class]], @"'instanceStorage' is not an instance of XAIImageCacheStorage class.");
-        NSAssert((instanceStorage.cacheStorage != nil), @"'cacheStorage' is nil.");
-    }
+        #if !__has_feature(objc_arc)
+            [cacheStateTemp release];
+            [cacheStatePerm release];
+        #endif
+        
+        #ifdef DEBUG
+            NSAssert(instanceStorage, @"'instanceStorage' should not be nil.");
+            NSAssert([instanceStorage isKindOfClass:[XAIImageCacheStorage class]], @"'instanceStorage' is not an instance of XAIImageCacheStorage class.");
+            NSAssert((instanceStorage.cacheStorage != nil), @"'cacheStorage' is nil.");
+        #endif
+    });
     
     return instanceStorage;
 }
 
 #pragma mark - NSURL - File Path
 
-+ (NSURL *)filePathForURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
-    NSString *imagePath = [[self sharedStorage] imagePathForURL:imageURL temporary:tempStorage];
+- (NSURL *)filePathForURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
+    NSString *imagePath = [self imagePathForURL:imageURL temporary:tempStorage];
     
-    return [NSURL fileURLWithPath:imagePath];
+    return [[NSURL alloc] initFileURLWithPath:imagePath isDirectory:NO];
 }
 
 #pragma mark - NSString - Image Path
 
 - (NSString *)imagePathForURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
-    NSString *storageDirectory = (tempStorage == YES) ? kXAIImageCacheDirectoryPathTemp : kXAIImageCacheDirectoryPathPerm;
-    NSArray *cachePath         = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
-    NSString *imagePath        = [[cachePath lastObject] stringByAppendingPathComponent:[NSString stringWithFormat:kXAIImageCacheFileNamePath, storageDirectory, [imageURL md5HexEncode]]];
+    NSString
+        *encodedName  = [imageURL md5HexEncode],
+        *imagePathExt = [imageURL pathExtension],
+        *imagePath    = [[self filteredCachePathForTemporaryStorage:tempStorage] stringByAppendingPathComponent:encodedName];
+    
+    if ([imagePathExt length] > 0) {
+        imagePath = [imagePath stringByAppendingPathExtension:imagePathExt];
+    }
     
     return imagePath;
+}
+
+- (NSString *)filteredCachePathForTemporaryStorage:(BOOL)tempStorage {
+    NSSearchPathDirectory searchPathDir = (tempStorage) ? NSCachesDirectory : NSDocumentDirectory;
+    NSArray  *filteredCachePaths        = NSSearchPathForDirectoriesInDomains(searchPathDir, NSUserDomainMask, YES);
+    NSString *storageCachePathPrefix    = (NSString *) [filteredCachePaths lastObject];
+    NSString *storageCachePathComponent = (tempStorage == YES) ? kXAIImageCacheDirectoryPathTemp : kXAIImageCacheDirectoryPathPerm;
+    
+    return [storageCachePathPrefix stringByAppendingPathComponent:storageCachePathComponent];
 }
 
 #pragma mark - Image - Load
@@ -132,7 +155,7 @@
             NSString *imagePath   = [self imagePathForURL:imageURL temporary:tempStorage];
             NSData *imageContents = [NSData dataWithContentsOfFile:imagePath];
             
-            cachedImage = [UIImage imageWithData:imageContents];
+            cachedImage = [[UIImage alloc] initWithData:imageContents];
             
             if (cachedImage != nil) {
                 if (kXAIImageCacheDebuggingMode && (kXAIImageCacheDebuggingLevel >= 2)) {
@@ -149,7 +172,7 @@
                 NSMutableDictionary *modifiedAttributes = [NSMutableDictionary dictionaryWithDictionary:attributes];
                 
                 /** Set the last modified date timestamp to the current date timestamp. */
-                [modifiedAttributes setObject:[NSDate date] forKey:NSFileModificationDate];
+                modifiedAttributes[NSFileModificationDate] = [NSDate date];
                 
                 /** Save the file attributes for the image path. */
                 [[NSFileManager defaultManager] setAttributes:modifiedAttributes ofItemAtPath:imagePath error:&error];
@@ -158,11 +181,14 @@
                     [error logDetailsFailedOnSelector:_cmd line:__LINE__];
                 }
             }
+            
+            #if !__has_feature(objc_arc)
+                [cachedImage release];
+            #endif
         } else {
             if (kXAIImageCacheDebuggingMode && kXAIImageCacheDebuggingLevel >= 2) {
                 NSLog(@"Loaded from memory.");
             }
-            
         }
     }
     
@@ -186,6 +212,7 @@
 - (BOOL)saveImage:(UIImage *)image forURL:(NSString *)imageURL temporary:(BOOL)tempStorage requireJPEG:(BOOL)jpegOnly {
     BOOL didImageSave = NO;
     
+    // Check to see if there is image contents to be saved.
     if (image == nil) {
         return didImageSave;
     }
@@ -194,23 +221,23 @@
     [self.cacheStorage setObject:image forKey:imageURL];
     
     @autoreleasepool {
-        NSData
-            *imageData   = ((kXAIImageCacheTempAsPNG == YES) && (tempStorage == YES))
-                ? UIImagePNGRepresentation(image)
-                : ((tempStorage == YES || jpegOnly == YES) ? UIImageJPEGRepresentation(image, 1.0f) : UIImagePNGRepresentation(image)),
-            *contentData = [NSData dataWithData:imageData];
+        NSData *imageData   = ((kXAIImageCacheTempAsPNG == YES) && (tempStorage == YES))
+            ? UIImagePNGRepresentation(image)
+            : ((tempStorage == YES || jpegOnly == YES) ? UIImageJPEGRepresentation(image, 1.0f) : UIImagePNGRepresentation(image));
+        NSData *contentData = [[NSData alloc] initWithData:imageData];
+        NSString *imagePath = [self imagePathForURL:imageURL temporary:tempStorage];
         
-        NSArray *cachePaths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
-        
-        NSString
-            *storagePath    = (tempStorage == YES) ? kXAIImageCacheDirectoryPathTemp : kXAIImageCacheDirectoryPathPerm,
-            *imagePath      = [[cachePaths lastObject] stringByAppendingPathComponent:[NSString stringWithFormat:kXAIImageCacheFileNamePath, storagePath, [imageURL md5HexEncode]]];
-        
+        // Check to see if the image contents was saved.
         didImageSave = [contentData writeToFile:imagePath atomically:!tempStorage];
         
+        // Debugging.
         if (!didImageSave && kXAIImageCacheDebuggingMode) {
             NSLog(@"Failed to save image to disk for path: %@", imagePath);
         }
+        
+        #if !__has_feature(objc_arc)
+            [contentData release];
+        #endif
     }
     
     return didImageSave;
@@ -245,8 +272,7 @@
     
     @try {
         NSError *error             = nil;
-        NSArray *cachePaths        = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
-        NSString *cacheFolder      = [[cachePaths lastObject] stringByAppendingPathComponent:kXAIImageCacheDirectoryPathTemp];
+        NSString *cacheFolder      = [self filteredCachePathForTemporaryStorage:YES];
         NSFileManager *fileManager = [NSFileManager defaultManager];
         NSArray *cacheFiles        = [fileManager contentsOfDirectoryAtPath:cacheFolder error:&error];
         
@@ -268,7 +294,7 @@
                     }
                     
                     /** File last modified date. */
-                    NSDate *lastModified = [fileAttributes objectForKey:NSFileModificationDate];
+                    NSDate *lastModified = fileAttributes[NSFileModificationDate];
                     
                     /** Time in seconds of last modified interval. */
                     NSTimeInterval lastModifiedInterval = [lastModified timeIntervalSinceNow];
@@ -298,8 +324,7 @@
     
     @try {
         NSError *error             = nil;
-        NSArray *cachePaths        = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
-        NSString *cacheFolder      = [[cachePaths lastObject] stringByAppendingPathComponent:kXAIImageCacheDirectoryPathTemp];
+        NSString *cacheFolder      = [self filteredCachePathForTemporaryStorage:YES];
         NSFileManager *fileManager = [NSFileManager defaultManager];
         NSArray *cacheFiles        = [fileManager contentsOfDirectoryAtPath:cacheFolder error:&error];
         
@@ -339,21 +364,29 @@
 }
 
 - (void)deleteImageForURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    NSArray *cachePaths        = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
-    NSError *deleteError       = nil;
+    NSFileCoordinator *fileCoordinator = [[NSFileCoordinator alloc] init];
+    NSError *writeError                = nil;
     
-    NSString
-        *storagePath = (tempStorage == YES) ? kXAIImageCacheDirectoryPathTemp : kXAIImageCacheDirectoryPathPerm,
-        *imagePath   = [[cachePaths lastObject] stringByAppendingPathComponent:[NSString stringWithFormat:kXAIImageCacheFileNamePath, storagePath, [imageURL md5HexEncode]]];
+    // Local file URL to delete.
+    NSURL *fileURL = [self filePathForURL:imageURL temporary:tempStorage];
     
-    if ([fileManager fileExistsAtPath:imagePath]) {
-        [fileManager removeItemAtPath:imagePath error:&deleteError];
-        
-        if (deleteError != nil) {
-            [deleteError logDetailsFailedOnSelector:_cmd line:__LINE__];
+    // Use the file coordinator to ensure the file can be written and deleted.
+    [fileCoordinator coordinateWritingItemAtURL:fileURL options:NSFileCoordinatorWritingForDeleting error:&writeError byAccessor:^(NSURL *filteredDeleteURL) {
+        if (writeError != nil) {
+            [writeError logDetailsFailedOnSelector:_cmd line:__LINE__];
+        } else {
+            NSFileManager *fileManager = [NSFileManager defaultManager];
+            NSError *deleteError       = nil;
+            
+            // Remove the file.
+            [fileManager removeItemAtURL:filteredDeleteURL error:&deleteError];
+            
+            // Log any errors.
+            if (deleteError != nil) {
+                [deleteError logDetailsFailedOnSelector:_cmd line:__LINE__];
+            }
         }
-    }
+    }];
 }
 
 #pragma mark - Image - Memory Flush All

@@ -31,7 +31,7 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStorageFlushInterval) {
 
 #pragma mark - NSURL - File Path
 
-+ (NSURL *)filePathForURL:(NSString *)imageURL temporary:(BOOL)tempStorage;
+- (NSURL *)filePathForURL:(NSString *)imageURL temporary:(BOOL)tempStorage;
 
 #pragma mark - Image Load
 
