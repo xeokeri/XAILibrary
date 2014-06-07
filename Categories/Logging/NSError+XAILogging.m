@@ -18,18 +18,18 @@
         return;
     }
     
-    NSArray *detailedErrors      = [[self userInfo] objectForKey:NSDetailedErrorsKey];
-    NSArray *conflictErrors      = [[self userInfo] objectForKey:NSPersistentStoreSaveConflictsErrorKey];
-    NSString *validationErrorKey = [[self userInfo] objectForKey:NSValidationKeyErrorKey];
+    NSArray *detailedErrors      = [self userInfo][NSDetailedErrorsKey];
+    NSArray *conflictErrors      = [self userInfo][NSPersistentStoreSaveConflictsErrorKey];
+    NSString *validationErrorKey = [self userInfo][NSValidationKeyErrorKey];
     
-    NSLog(@"Error: %@, Line %lu, %@", NSStringFromSelector(failedSelector), (unsigned long)lineNumber, [self localizedDescription]);
+    NSLog(@"Error: %@, Line %lu, %@", NSStringFromSelector(failedSelector), (unsigned long) lineNumber, [self localizedDescription]);
     
     if (validationErrorKey) {
-        NSLog(@"Validation Error for key: %@\n%@", validationErrorKey, [[self userInfo] objectForKey:NSValidationObjectErrorKey]);
+        NSLog(@"Validation Error for key: %@\n%@", validationErrorKey, [self userInfo][NSValidationObjectErrorKey]);
     }
     
     for (NSError *detailedError in detailedErrors) {
-        NSLog(@"Error on %@: %@", [[detailedError userInfo] valueForKey:NSValidationKeyErrorKey], [[detailedError userInfo] valueForKey:NSValidationObjectErrorKey]);
+        NSLog(@"Error on %@: %@", [[detailedError userInfo] valueForKey:NSValidationKeyErrorKey], [detailedError userInfo][NSValidationObjectErrorKey]);
     }
     
     for (NSMergeConflict *conflictError in conflictErrors) {

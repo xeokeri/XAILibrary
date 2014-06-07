@@ -18,13 +18,13 @@
         return;
     }
     
-    NSArray *exceptions = [[self userInfo] objectForKey:NSDetailedErrorsKey];
+    NSArray *exceptions = [self userInfo][NSDetailedErrorsKey];
     
     for (NSError *detailedException in exceptions) {
-        NSLog(@"Exception: %@, %@, Line %lu, %@", exceptionOnClass, NSStringFromSelector(failedSelector), (unsigned long)lineNumber, [[detailedException userInfo] valueForKey:NSValidationKeyErrorKey]);
+        NSLog(@"Exception: %@, %@, Line %lu, %@", exceptionOnClass, NSStringFromSelector(failedSelector), (unsigned long) lineNumber, [detailedException userInfo][NSValidationKeyErrorKey]);
     }
     
-    NSLog(@"Exception: %@, %@, Line %lu, %@\n %@", exceptionOnClass, NSStringFromSelector(failedSelector), (unsigned long)lineNumber, [self reason], [self callStackSymbols]);
+    NSLog(@"Exception: %@, %@, Line %lu, %@\n %@", exceptionOnClass, NSStringFromSelector(failedSelector), (unsigned long) lineNumber, [self reason], [self callStackSymbols]);
 }
 
 @end
