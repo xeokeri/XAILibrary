@@ -140,59 +140,86 @@
 
 - (UIImage *)cachedImageForURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
     UIImage *cachedImage = nil;
+    BOOL loggingEnabled  = ((kXAIImageCacheDebuggingMode == YES) && kXAIImageCacheDebuggingLevel >= 2);
     
     @try {
         cachedImage = [self.cacheStorage objectForKey:imageURL];
     } @catch (NSException *exception) {
         [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
     } @finally {
-        if (cachedImage == nil) {
-            /** Loading from disk. */
-            if (kXAIImageCacheDebuggingMode && kXAIImageCacheDebuggingLevel >= 2) {
-                NSLog(@"Checking disk.");
+        if (cachedImage != nil) {
+            /** Debug logging. */
+            if (loggingEnabled) {
+                NSLog(@"Loaded from memory cache for URL: %@", imageURL);
+                
+                return cachedImage;
+            }
+        } else {
+            /** Debug logging. */
+            if (loggingEnabled) {
+                NSLog(@"Checking disk for URL: %@", imageURL);
             }
             
-            NSString *imagePath   = [self imagePathWithURL:imageURL temporary:tempStorage];
-            NSData *imageContents = [NSData dataWithContentsOfFile:imagePath];
+            /** Loading from disk. */
+            NSError *imageLoadError = nil;
+            NSString *imagePath     = [self imagePathWithURL:imageURL temporary:tempStorage];
+            NSData *imageData       = [[NSData alloc] initWithContentsOfFile:imagePath options:NSDataReadingUncached error:&imageLoadError];
             
-            cachedImage = [[UIImage alloc] initWithData:imageContents];
+            if (imageLoadError != nil) {
+                /** Debug logging. */
+                if (loggingEnabled) {
+                    NSLog(@"Error loading file from disk for URL: %@", imageURL);
+                }
+            } else {
+                UIImage *imageFromData = [[UIImage alloc] initWithData:imageData];
+                
+                /** Update the cached image. */
+                cachedImage = imageFromData;
+                
+                #if !__has_feature(objc_arc)
+                    [imageFromData release];
+                #endif
+            }
             
+            #if !__has_feature(objc_arc)
+                [imageData release];
+            #endif
+            
+            /** Image is loaded, add the file attributes. */
             if (cachedImage != nil) {
-                if (kXAIImageCacheDebuggingMode && (kXAIImageCacheDebuggingLevel >= 2)) {
-                    NSLog(@"Loaded from disk.");
+                /** Debug logging. */
+                if (loggingEnabled) {
+                    NSLog(@"Loaded from disk for URL: %@", imageURL);
                 }
                 
                 /** Track any errors for updating the last modified date. */
-                NSError *error = nil;
+                NSError *attributeError  = nil;
                 
                 /** Retreive the file attributes. */
-                NSDictionary *attributes = [[NSFileManager defaultManager] attributesOfItemAtPath:imagePath error:&error];
+                NSDictionary *attributes = [[NSFileManager defaultManager] attributesOfItemAtPath:imagePath error:&attributeError];
                 
                 /** Make the attributes writable. */
-                NSMutableDictionary *modifiedAttributes = [NSMutableDictionary dictionaryWithDictionary:attributes];
+                NSMutableDictionary *modifiedAttributes = [[NSMutableDictionary alloc] initWithDictionary:attributes copyItems:YES];
                 
                 /** Set the last modified date timestamp to the current date timestamp. */
                 modifiedAttributes[NSFileModificationDate] = [NSDate date];
                 
                 /** Save the file attributes for the image path. */
-                [[NSFileManager defaultManager] setAttributes:modifiedAttributes ofItemAtPath:imagePath error:&error];
+                [[NSFileManager defaultManager] setAttributes:modifiedAttributes ofItemAtPath:imagePath error:&attributeError];
                 
-                if (error != nil) {
-                    [error logDetailsFailedOnSelector:_cmd line:__LINE__];
+                #if !__has_feature(objc_arc)
+                    [modifiedAttributes release];
+                #endif
+                
+                /** Debug logging. */
+                if (attributeError != nil && loggingEnabled) {
+                    [attributeError logDetailsFailedOnSelector:_cmd line:__LINE__];
                 }
-            }
-            
-            #if !__has_feature(objc_arc)
-                [cachedImage release];
-            #endif
-        } else {
-            if (kXAIImageCacheDebuggingMode && kXAIImageCacheDebuggingLevel >= 2) {
-                NSLog(@"Loaded from memory.");
             }
         }
     }
     
-    if ((cachedImage == nil) && (kXAIImageCacheDebuggingMode && kXAIImageCacheDebuggingLevel >= 2)) {
+    if ((cachedImage == nil) && loggingEnabled) {
         NSLog(@"Image not loaded for URL: %@", imageURL);
     }
     
@@ -244,6 +271,50 @@
 }
 
 #pragma mark - Image - Delete
+
+- (BOOL)flushTemporaryStorage {
+    BOOL successful = YES;
+    
+    @try {
+        NSError *error             = nil;
+        NSString *cacheFolder      = [self filteredCachePathForTemporaryStorage:YES];
+        NSFileManager *fileManager = [NSFileManager defaultManager];
+        NSArray *cacheFiles        = [fileManager contentsOfDirectoryAtPath:cacheFolder error:&error];
+        
+        if (error != nil) {
+            [error logDetailsFailedOnSelector:_cmd line:__LINE__];
+        } else {
+            for (NSString *cachedFile in cacheFiles) {
+                NSString *filePath = [NSString stringWithFormat:@"%@/%@", cacheFolder, cachedFile];
+                BOOL isDirectory;
+                
+                if (kXAIImageCacheDebuggingMode && kXAIImageCacheDebuggingLevel >= 2) {
+                    NSLog(@"FilePath: %@", filePath);
+                }
+                
+                if ([fileManager fileExistsAtPath:filePath isDirectory:&isDirectory] && !isDirectory) {
+                    NSError *removeError = nil;
+                    
+                    BOOL removed = [fileManager removeItemAtPath:filePath error:&removeError];
+                    
+                    if (!removed) {
+                        successful = NO;
+                    }
+                    
+                    if (removeError != nil) {
+                        [removeError logDetailsFailedOnSelector:_cmd line:__LINE__];
+                    }
+                }
+            }
+        }
+    } @catch (NSException *exception) {
+        [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
+        
+        successful = NO;
+    }
+    
+    return successful;
+}
 
 - (void)cacheCleanup {
     NSUserDefaults *defaults       = [NSUserDefaults standardUserDefaults];
@@ -317,50 +388,6 @@
     } @finally {
         [defaults setObject:[NSDate date] forKey:kXAIImageCacheFlushPerformed];
     }
-}
-
-- (BOOL)flushTemporaryStorage {
-    BOOL successful = YES;
-    
-    @try {
-        NSError *error             = nil;
-        NSString *cacheFolder      = [self filteredCachePathForTemporaryStorage:YES];
-        NSFileManager *fileManager = [NSFileManager defaultManager];
-        NSArray *cacheFiles        = [fileManager contentsOfDirectoryAtPath:cacheFolder error:&error];
-        
-        if (error != nil) {
-            [error logDetailsFailedOnSelector:_cmd line:__LINE__];
-        } else {
-            for (NSString *cachedFile in cacheFiles) {
-                NSString *filePath = [NSString stringWithFormat:@"%@/%@", cacheFolder, cachedFile];
-                BOOL isDirectory;
-                
-                if (kXAIImageCacheDebuggingMode && kXAIImageCacheDebuggingLevel >= 2) {
-                    NSLog(@"FilePath: %@", filePath);
-                }
-                
-                if ([fileManager fileExistsAtPath:filePath isDirectory:&isDirectory] && !isDirectory) {
-                    NSError *removeError = nil;
-                    
-                    BOOL removed = [fileManager removeItemAtPath:filePath error:&removeError];
-                    
-                    if (!removed) {
-                        successful = NO;
-                    }
-                    
-                    if (removeError != nil) {
-                        [removeError logDetailsFailedOnSelector:_cmd line:__LINE__];
-                    }
-                }
-            }
-        }
-    } @catch (NSException *exception) {
-        [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
-        
-        successful = NO;
-    }
-    
-    return successful;
 }
 
 - (void)deleteImageForURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
