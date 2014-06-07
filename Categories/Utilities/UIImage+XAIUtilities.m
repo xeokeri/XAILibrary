@@ -207,11 +207,11 @@
     }
     
     @autoreleasepool {
-        CFDictionaryRef imageOptions = (__bridge CFDictionaryRef) [NSDictionary dictionaryWithObjectsAndKeys:
-            (id)kCFBooleanTrue, (id)kCGImageSourceCreateThumbnailWithTransform,
-            (id)kCFBooleanTrue, (id)kCGImageSourceCreateThumbnailFromImageIfAbsent,
-            (id)[NSNumber numberWithFloat:[UIImage maxSide]], (id)kCGImageSourceThumbnailMaxPixelSize,
-            nil];
+        CFDictionaryRef imageOptions = (__bridge CFDictionaryRef) @{
+            (id)kCGImageSourceCreateThumbnailWithTransform: (id)kCFBooleanTrue,
+            (id)kCGImageSourceCreateThumbnailFromImageIfAbsent: (id)kCFBooleanTrue,
+            (id)kCGImageSourceThumbnailMaxPixelSize: (id)@([UIImage maxSide])
+        };
         
         CGImageRef imageRef = CGImageSourceCreateThumbnailAtIndex(imgSource, 0, imageOptions);
         
