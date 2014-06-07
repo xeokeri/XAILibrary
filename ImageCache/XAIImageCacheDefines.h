@@ -24,7 +24,6 @@
 #define kXAIImageCacheFlushPerformed        @"ImageCacheFlushLastPerformed"
 #define kXAIImageCacheDirectoryPathTemp     @"ImageCache"
 #define kXAIImageCacheDirectoryPathPerm     @"ImageStorage"
-#define kXAIImageCacheFileNamePath          @"%@/%@.png"
 
 /** Debugging */
 #define kXAIImageCacheDebuggingMode         NO
