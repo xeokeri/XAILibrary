@@ -10,7 +10,12 @@
 
 @interface NSString (XAIUtilities)
 
+/** Application File Locations. */
 + (NSString *)applicationPathForDocumentsDirectory;
 + (NSString *)applicationPathForFileName:(NSString *)fileName ofType:(NSString *)fileType;
+
+/** HASH Encoding */
+- (NSString *)md5HexEncode;
+- (NSString *)sha256HexEncode;
 
 @end

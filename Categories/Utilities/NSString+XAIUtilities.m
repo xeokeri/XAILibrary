@@ -8,6 +8,8 @@
 
 #import "NSString+XAIUtilities.h"
 
+#import <CommonCrypto/CommonCrypto.h>
+
 @implementation NSString (XAIUtilities)
 
 #pragma mark - Application's Documents Directory
@@ -40,6 +42,44 @@
     }
     
     return storePath;
+}
+
+/**
+ * MD5 Hash
+ */
+- (NSString *)md5HexEncode {
+    const char *input = [self UTF8String];
+    
+    unsigned char result[CC_MD5_DIGEST_LENGTH];
+    
+    CC_MD5(input, strlen(input), result);
+    
+    NSMutableString *encryptedResult = [[NSMutableString alloc] initWithCapacity:CC_MD5_DIGEST_LENGTH * 2];
+    
+    for (int i = 0; i < CC_MD5_DIGEST_LENGTH; i++) {
+        [encryptedResult appendFormat:@"%02x", result[i]];
+    }
+    
+    return encryptedResult;
+}
+
+/**
+ * SHA256 Hash
+ */
+- (NSString *)sha256HexEncode {
+    const char *input = [self UTF8String];
+    
+    unsigned char result[CC_SHA256_DIGEST_LENGTH];
+    
+    CC_SHA256(input, strlen(input), result);
+    
+    NSMutableString *encryptedResult = [[NSMutableString alloc] initWithCapacity:CC_SHA256_DIGEST_LENGTH * 2];
+    
+    for (int i = 0; i < CC_SHA256_DIGEST_LENGTH; i++) {
+        [encryptedResult appendFormat:@"%02x", result[i]];
+    }
+    
+    return encryptedResult;
 }
 
 @end
