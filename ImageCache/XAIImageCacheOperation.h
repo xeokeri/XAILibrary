@@ -31,9 +31,9 @@ typedef enum {
 /** XAIImageCacheOperationBlock */
 typedef void (^XAIImageCacheOperationBlock)(UIImage *img, NSError *err);
 
-@interface XAIImageCacheOperation : NSOperation <NSURLConnectionDataDelegate> {
+@interface XAIImageCacheOperation : NSOperation {
     @private
-    id <XAIImageCacheDelegate>  __weak delegateView;
+    id <XAIImageCacheDelegate> __weak delegateView;
     XAIImageCacheOperationBlock        operationBlock;
     
     NSMutableData   *receivedData;
@@ -51,7 +51,7 @@ typedef void (^XAIImageCacheOperationBlock)(UIImage *img, NSError *err);
     BOOL operationFinished;
 }
 
-@property (nonatomic, weak) id <XAIImageCacheDelegate>  delegateView;
+@property (nonatomic, weak) id <XAIImageCacheDelegate> delegateView;
 @property (nonatomic, copy) XAIImageCacheOperationBlock operationBlock;
 
 @property (nonatomic, strong) NSMutableData   *receivedData;
