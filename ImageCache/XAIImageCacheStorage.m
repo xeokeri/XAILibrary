@@ -39,7 +39,7 @@
     self = [super init];
     
     if (self) {
-        /** Set the default number of days for the cache cleanup. */
+        /** Configure the cache interval for flushing the temporary cache. */
         self.cacheIntervalNumberOfDays = kXAIImageCacheFlushInterval;
         
         /** Set the cache storage. */
@@ -67,7 +67,6 @@
         instanceStorage = [[self alloc] init];
         
         /** Create the image cache folders. */
-        NSError *error             = nil;
         NSNumber *cacheStateTemp   = [[NSNumber alloc] initWithBool:YES];
         NSNumber *cacheStatePerm   = [[NSNumber alloc] initWithBool:NO];
         NSArray *cacheStates       = @[cacheStateTemp, cacheStatePerm];
@@ -77,10 +76,14 @@
             NSString *cacheFolder = [instanceStorage filteredCachePathForTemporaryStorage:[cacheState boolValue]];
             
             if (![fileManager fileExistsAtPath:cacheFolder]) {
-                [fileManager createDirectoryAtPath:cacheFolder withIntermediateDirectories:NO attributes:nil error:&error];
+                NSError *createDirError = nil;
                 
-                if (error != nil) {
-                    [error logDetailsFailedOnSelector:_cmd line:__LINE__];
+                // Create the image cache storage folder.
+                [fileManager createDirectoryAtPath:cacheFolder withIntermediateDirectories:NO attributes:nil error:&createDirError];
+                
+                // Debug logging.
+                if (createDirError != nil) {
+                    [createDirError logDetailsFailedOnSelector:_cmd line:__LINE__];
                 }
             }
         }
