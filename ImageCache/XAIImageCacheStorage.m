@@ -359,19 +359,26 @@
     }
     
     @try {
-        NSError *error             = nil;
-        NSString *cacheFolder      = [self filteredCachePathForTemporaryStorage:YES];
+        NSError *dirReadError      = nil;
         NSFileManager *fileManager = [NSFileManager defaultManager];
-        NSArray *cacheFiles        = [fileManager contentsOfDirectoryAtPath:cacheFolder error:&error];
+        NSString *cacheFolder      = [self filteredCachePathForTemporaryStorage:YES];
+        NSArray *cachedFiles       = [fileManager contentsOfDirectoryAtPath:cacheFolder error:&dirReadError];
         
-        if (error != nil) {
-            [error logDetailsFailedOnSelector:_cmd line:__LINE__];
+        // Check directory read access.
+        if (dirReadError != nil) {
+            [dirReadError logDetailsFailedOnSelector:_cmd line:__LINE__];
         } else {
-            for (NSString *cachedFile in cacheFiles) {
-                NSString *filePath = [NSString stringWithFormat:@"%@/%@", cacheFolder, cachedFile];
-                BOOL isDirectory;
+            for (NSString *aCachedFile in cachedFiles) {
+                NSString *fileDir  = [[NSString alloc] initWithString:cacheFolder];
+                NSString *filePath = [fileDir stringByAppendingPathComponent:aCachedFile];
+                BOOL fileExists    = [fileManager fileExistsAtPath:filePath];
+                BOOL isDeletable   = [fileManager isDeletableFileAtPath:filePath];
                 
-                if ([fileManager fileExistsAtPath:filePath isDirectory:&isDirectory] && !isDirectory) {
+                #if !__has_feature(objc_arc)
+                    [fileDir release];
+                #endif
+                
+                if (fileExists && isDeletable) {
                     NSError *fileError = nil;
                     NSDictionary *fileAttributes = [fileManager attributesOfItemAtPath:filePath error:&fileError];
                     
