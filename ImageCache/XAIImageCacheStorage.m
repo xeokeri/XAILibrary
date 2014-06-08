@@ -248,23 +248,23 @@
     [self.cacheStorage setObject:image forKey:imageURL];
     
     @autoreleasepool {
-        NSData *imageData   = ((kXAIImageCacheTempAsPNG == YES) && (tempStorage == YES))
-            ? UIImagePNGRepresentation(image)
-            : ((tempStorage == YES || jpegOnly == YES) ? UIImageJPEGRepresentation(image, 1.0f) : UIImagePNGRepresentation(image));
-        NSData *contentData = [[NSData alloc] initWithData:imageData];
+        // File path to save the contents of the image.
         NSString *imagePath = [self imagePathWithURL:imageURL temporary:tempStorage];
         
+        // Data from image contents, to be saved to the file system.
+        NSData *imageData   = ((kXAIImageCacheTempAsPNG == YES) && (tempStorage == YES))
+            ? UIImagePNGRepresentation(image)
+            : ((tempStorage == YES || jpegOnly == YES)
+               ? UIImageJPEGRepresentation(image, 1.0f)
+               : UIImagePNGRepresentation(image));
+        
         // Check to see if the image contents was saved.
-        didImageSave = [contentData writeToFile:imagePath atomically:!tempStorage];
+        didImageSave = [imageData writeToFile:imagePath atomically:!tempStorage];
         
         // Debugging.
         if (!didImageSave && kXAIImageCacheDebuggingMode) {
             NSLog(@"Failed to save image to disk for path: %@", imagePath);
         }
-        
-        #if !__has_feature(objc_arc)
-            [contentData release];
-        #endif
     }
     
     return didImageSave;
@@ -318,24 +318,30 @@
 
 - (void)cacheCleanup {
     NSUserDefaults *defaults       = [NSUserDefaults standardUserDefaults];
-    NSDate *currentDate            = [NSDate date];
-    NSDate *lastUpdatedDate        = [defaults objectForKey:kXAIImageCacheFlushPerformed];
-    NSUInteger updateTimeframe     = (60 * 60 * 24 * self.cacheIntervalNumberOfDays); // seconds, minutes, hours, days...
+    NSDate *currentDate            = [[NSDate alloc] init];
+    NSDate *updatedDate            = [defaults objectForKey:kXAIImageCacheFlushPerformed];
+    NSNumber *numberOfDays         = [[NSNumber alloc] initWithUnsignedInteger:self.cacheIntervalNumberOfDays];
+    CGFloat updateTimeframe        = (60.0f * 60.0f * 24.0f * [numberOfDays doubleValue]); // seconds, minutes, hours, days...
     NSTimeInterval currentInterval = [currentDate timeIntervalSinceNow];
+    BOOL isFlushRequired           = NO;
     
-    BOOL isFlushRequired = NO;
-    
-    if (lastUpdatedDate == nil) {
-        isFlushRequired = NO;
-        
+    // Check to see if a cache flush has previously been performed, otherwise set the default date.
+    if (updatedDate == nil) {
         [defaults setObject:currentDate forKey:kXAIImageCacheFlushPerformed];
     } else {
-        NSTimeInterval lastFlushInterval = [lastUpdatedDate timeIntervalSinceNow];
+        NSTimeInterval
+            lastFlushInterval = [updatedDate timeIntervalSinceNow],
+            diffFlushInterval = (currentInterval - lastFlushInterval);
         
-        if ((currentInterval - lastFlushInterval) > updateTimeframe) {
+        if (diffFlushInterval > updateTimeframe) {
             isFlushRequired = YES;
         }
     }
+    
+    #if !__has_feature(objc_arc)
+        [currentDate release];
+        [numberOfDays release];
+    #endif
     
     if (!isFlushRequired) {
         return;
