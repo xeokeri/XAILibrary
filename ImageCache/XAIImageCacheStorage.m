@@ -19,6 +19,11 @@
 #import "NSError+XAILogging.h"
 #import "NSException+XAILogging.h"
 
+/** NSString */
+NSString * const XAIImageCacheFlushPerformed    = @"ImageCacheFlushLastPerformed";
+NSString * const XAIImageCacheDirectoryPathTemp = @"ImageCache";
+NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
+
 @interface XAIImageCacheStorage()
 
 @property (nonatomic, strong) NSCache *cacheStorage;
@@ -41,7 +46,7 @@
     
     if (self) {
         /** Configure the cache interval for flushing the temporary cache. */
-        self.cacheIntervalNumberOfDays = kXAIImageCacheFlushInterval;
+        self.cacheIntervalNumberOfDays = XAIImageCacheStorageFlushIntervalWeek;
         
         /** Set the cache storage. */
         NSCache *memoryCache = [[NSCache alloc] init];
@@ -131,7 +136,7 @@
     NSSearchPathDirectory searchPathDir = (tempStorage) ? NSCachesDirectory : NSDocumentDirectory;
     NSArray  *filteredCachePaths        = NSSearchPathForDirectoriesInDomains(searchPathDir, NSUserDomainMask, YES);
     NSString *storageCachePathPrefix    = (NSString *) [filteredCachePaths lastObject];
-    NSString *storageCachePathComponent = (tempStorage == YES) ? kXAIImageCacheDirectoryPathTemp : kXAIImageCacheDirectoryPathPerm;
+    NSString *storageCachePathComponent = (tempStorage == YES) ? XAIImageCacheDirectoryPathTemp : XAIImageCacheDirectoryPathPerm;
     
     return [storageCachePathPrefix stringByAppendingPathComponent:storageCachePathComponent];
 }
@@ -144,7 +149,7 @@
 
 - (UIImage *)cachedImageForURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
     UIImage *cachedImage = nil;
-    BOOL loggingEnabled  = ((kXAIImageCacheDebuggingMode == YES) && kXAIImageCacheDebuggingLevel >= 2);
+    BOOL loggingEnabled  = (XAIImageCacheDebuggingLevelCurentState >= XAIImageCacheDebuggingLevelMedium);
     
     @try {
         cachedImage = [self.cacheStorage objectForKey:imageURL];
@@ -242,7 +247,7 @@
 
 - (BOOL)saveImage:(UIImage *)image forURL:(NSString *)imageURL temporary:(BOOL)tempStorage requireJPEG:(BOOL)jpegOnly {
     BOOL didImageSave   = NO;
-    BOOL loggingEnabled = ((kXAIImageCacheDebuggingMode == YES) && kXAIImageCacheDebuggingLevel >= 2);
+    BOOL loggingEnabled = (XAIImageCacheDebuggingLevelCurentState >= XAIImageCacheDebuggingLevelMedium);
     
     // Check to see if there is image contents to be saved.
     if (image == nil) {
@@ -257,7 +262,7 @@
         NSString *filePath  = [self imagePathWithURL:imageURL temporary:tempStorage];
         
         // Data from image contents, to be saved to the file system.
-        NSData *imageData   = ((kXAIImageCacheTempAsPNG == YES) && (tempStorage == YES))
+        NSData *imageData   = ((XAIImageCacheTempAsPNG == YES) && (tempStorage == YES))
             ? UIImagePNGRepresentation(image)
             : ((tempStorage == YES || jpegOnly == YES)
                ? UIImageJPEGRepresentation(image, 1.0f)
@@ -289,7 +294,7 @@
 
 - (BOOL)flushTemporaryStorage {
     BOOL successful     = YES;
-    BOOL loggingEnabled = ((kXAIImageCacheDebuggingMode == YES) && kXAIImageCacheDebuggingLevel >= 2);
+    BOOL loggingEnabled = ((XAIImageCacheDebuggingLevelCurentState >= XAIImageCacheDebuggingLevelMedium));
     
     @try {
         NSError *dirReadError      = nil;
@@ -344,7 +349,7 @@
 - (void)cacheCleanup {
     NSUserDefaults *defaults       = [NSUserDefaults standardUserDefaults];
     NSDate *currentDate            = [[NSDate alloc] init];
-    NSDate *updatedDate            = [defaults objectForKey:kXAIImageCacheFlushPerformed];
+    NSDate *updatedDate            = [defaults objectForKey:XAIImageCacheFlushPerformed];
     NSNumber *numberOfDays         = [[NSNumber alloc] initWithUnsignedInteger:self.cacheIntervalNumberOfDays];
     CGFloat updateTimeframe        = (60.0f * 60.0f * 24.0f * [numberOfDays doubleValue]); // seconds, minutes, hours, days...
     NSTimeInterval currentInterval = [currentDate timeIntervalSinceNow];
@@ -352,7 +357,7 @@
     
     // Check to see if a cache flush has previously been performed, otherwise set the default date.
     if (updatedDate == nil) {
-        [defaults setObject:currentDate forKey:kXAIImageCacheFlushPerformed];
+        [defaults setObject:currentDate forKey:XAIImageCacheFlushPerformed];
     } else {
         NSTimeInterval
             lastFlushInterval = [updatedDate timeIntervalSinceNow],
@@ -417,13 +422,13 @@
     } @catch (NSException *exception) {
         [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
     } @finally {
-        [defaults setObject:[NSDate date] forKey:kXAIImageCacheFlushPerformed];
+        [defaults setObject:[NSDate date] forKey:XAIImageCacheFlushPerformed];
     }
 }
 
 - (BOOL)deleteImageForFilePath:(NSString *)filePath {
     /**  Logging state. */
-    BOOL loggingEnabled = ((kXAIImageCacheDebuggingMode == YES) && kXAIImageCacheDebuggingLevel >= 2);
+    BOOL loggingEnabled = (XAIImageCacheDebuggingLevelCurentState >= XAIImageCacheDebuggingLevelMedium);
     
     /** Monitor any file access errors. */
     NSError *removeError = nil;
@@ -447,7 +452,7 @@
 
 - (void)deleteImageForURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
     // Logging state.
-    BOOL loggingEnabled = ((kXAIImageCacheDebuggingMode == YES) && kXAIImageCacheDebuggingLevel >= 2);
+    BOOL loggingEnabled = (XAIImageCacheDebuggingLevelCurentState >= XAIImageCacheDebuggingLevelMedium);
     
     NSFileCoordinator *fileCoordinator = [[NSFileCoordinator alloc] init];
     NSError *writeError                = nil;

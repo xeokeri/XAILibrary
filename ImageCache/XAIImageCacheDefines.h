@@ -7,24 +7,20 @@
 //
 
 /** BOOL */
-#ifndef kXAIImageCacheTempAsPNG
-    #define kXAIImageCacheTempAsPNG         NO
-#endif
-
-/** NSUInteger */
-#define kXAIImageCacheQueueMaxLimit         10
-#define kXAIImageCacheFlushInterval         7 /** Number in days. */
+BOOL const XAIImageCacheTempAsPNG               = NO;
 
 /** CGFloat */
-#define kXAIImageCacheTimeoutInterval       15.0f
-#define kXAIImageCacheFadeInDuration        0.25f
-#define kXAIImageCacheCropEdgeOverflow      2.0f
+CGFloat const XAIImageCacheTimeoutInterval      = 15.0f;
+CGFloat const XAIImageCacheFadeInDuration       = 0.25f;
+CGFloat const XAIImageCacheCropEdgeOverflow     = 2.0f;
 
-/** NSString */
-#define kXAIImageCacheFlushPerformed        @"ImageCacheFlushLastPerformed"
-#define kXAIImageCacheDirectoryPathTemp     @"ImageCache"
-#define kXAIImageCacheDirectoryPathPerm     @"ImageStorage"
+/** Debugging Levels */
+typedef NS_ENUM(NSUInteger, XAIImageCacheDebuggingLevel) {
+    XAIImageCacheDebuggingLevelDisabled = 0,
+    XAIImageCacheDebuggingLevelLow,
+    XAIImageCacheDebuggingLevelMedium,
+    XAIImageCacheDebuggingLevelHigh,
+};
 
-/** Debugging */
-#define kXAIImageCacheDebuggingMode         NO
-#define kXAIImageCacheDebuggingLevel        0
+/** Debugging State */
+XAIImageCacheDebuggingLevel const XAIImageCacheDebuggingLevelCurentState = XAIImageCacheDebuggingLevelMedium;

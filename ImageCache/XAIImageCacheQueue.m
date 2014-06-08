@@ -22,8 +22,7 @@
     self = [super init];
     
     if (self) {
-        self.maxConcurrentOperationCount = kXAIImageCacheQueueMaxLimit;
-        self.urlList                     = [NSMutableArray array];
+        self.urlList = [NSMutableArray array];
     }
     
     return self;
