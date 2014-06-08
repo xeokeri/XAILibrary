@@ -9,7 +9,6 @@ A UIImage caching mechanism, that is configurable. Currently supports flushing o
 * If the image isn't cached, pull from the URL.
 * Fade in on successful image load.
 * Support for image cache flushing based on date stamp. Defaults to 7 days.
-* Support for max concurrent connections. Defaults to 10.
 
 ###Pending:
 * Update for ARC support.
