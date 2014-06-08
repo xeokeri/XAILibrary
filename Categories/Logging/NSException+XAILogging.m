@@ -14,9 +14,9 @@
 #pragma mark - Exception Logging
 
 - (void)logDetailsFailedOnSelector:(SEL)failedSelector line:(NSUInteger)lineNumber onClass:(NSString *)exceptionOnClass {
-    if (!kLogExceptionDebugging) {
+    #ifndef DEBUG
         return;
-    }
+    #endif
     
     NSArray *exceptions = [self userInfo][NSDetailedErrorsKey];
     

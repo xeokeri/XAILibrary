@@ -8,8 +8,6 @@
 
 #import <Foundation/Foundation.h>
 
-#define kLogExceptionDebugging     YES
-
 @interface NSException (XAILogging)
 
 - (void)logDetailsFailedOnSelector:(SEL)failedSelector line:(NSUInteger)lineNumber onClass:(NSString *)exceptionOnClass;

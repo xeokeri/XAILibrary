@@ -14,9 +14,9 @@
 #pragma mark - Error Logging
 
 - (void)logDetailsFailedOnSelector:(SEL)failedSelector line:(NSUInteger)lineNumber {
-    if (!kLogErrorDebugging) {
+    #ifndef DEBUG
         return;
-    }
+    #endif
     
     NSArray *detailedErrors      = [self userInfo][NSDetailedErrorsKey];
     NSArray *conflictErrors      = [self userInfo][NSPersistentStoreSaveConflictsErrorKey];
