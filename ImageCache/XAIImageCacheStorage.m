@@ -149,7 +149,7 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
 
 - (UIImage *)cachedImageForURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
     UIImage *cachedImage = nil;
-    BOOL loggingEnabled  = (XAIImageCacheDebuggingLevelCurentState >= XAIImageCacheDebuggingLevelMedium);
+    BOOL loggingEnabled  = (XAIImageCacheDebuggingLevelCurrentState >= XAIImageCacheDebuggingLevelMedium);
     
     @try {
         cachedImage = [self.cacheStorage objectForKey:imageURL];
@@ -247,7 +247,7 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
 
 - (BOOL)saveImage:(UIImage *)image forURL:(NSString *)imageURL temporary:(BOOL)tempStorage requireJPEG:(BOOL)jpegOnly {
     BOOL didImageSave   = NO;
-    BOOL loggingEnabled = (XAIImageCacheDebuggingLevelCurentState >= XAIImageCacheDebuggingLevelMedium);
+    BOOL loggingEnabled = (XAIImageCacheDebuggingLevelCurrentState >= XAIImageCacheDebuggingLevelMedium);
     
     // Check to see if there is image contents to be saved.
     if (image == nil) {
@@ -294,7 +294,7 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
 
 - (BOOL)flushTemporaryStorage {
     BOOL successful     = YES;
-    BOOL loggingEnabled = ((XAIImageCacheDebuggingLevelCurentState >= XAIImageCacheDebuggingLevelMedium));
+    BOOL loggingEnabled = ((XAIImageCacheDebuggingLevelCurrentState >= XAIImageCacheDebuggingLevelMedium));
     
     @try {
         NSError *dirReadError      = nil;
@@ -428,7 +428,7 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
 
 - (BOOL)deleteImageForFilePath:(NSString *)filePath {
     /**  Logging state. */
-    BOOL loggingEnabled = (XAIImageCacheDebuggingLevelCurentState >= XAIImageCacheDebuggingLevelMedium);
+    BOOL loggingEnabled = (XAIImageCacheDebuggingLevelCurrentState >= XAIImageCacheDebuggingLevelMedium);
     
     /** Monitor any file access errors. */
     NSError *removeError = nil;
@@ -452,7 +452,7 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
 
 - (void)deleteImageForURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
     // Logging state.
-    BOOL loggingEnabled = (XAIImageCacheDebuggingLevelCurentState >= XAIImageCacheDebuggingLevelMedium);
+    BOOL loggingEnabled = (XAIImageCacheDebuggingLevelCurrentState >= XAIImageCacheDebuggingLevelMedium);
     
     NSFileCoordinator *fileCoordinator = [[NSFileCoordinator alloc] init];
     NSError *writeError                = nil;

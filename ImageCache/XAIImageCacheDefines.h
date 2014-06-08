@@ -23,4 +23,4 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheDebuggingLevel) {
 };
 
 /** Debugging State */
-XAIImageCacheDebuggingLevel const XAIImageCacheDebuggingLevelCurentState = XAIImageCacheDebuggingLevelMedium;
+XAIImageCacheDebuggingLevel const XAIImageCacheDebuggingLevelCurrentState = XAIImageCacheDebuggingLevelMedium;
