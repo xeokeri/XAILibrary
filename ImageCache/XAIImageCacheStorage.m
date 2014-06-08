@@ -237,7 +237,8 @@
 }
 
 - (BOOL)saveImage:(UIImage *)image forURL:(NSString *)imageURL temporary:(BOOL)tempStorage requireJPEG:(BOOL)jpegOnly {
-    BOOL didImageSave = NO;
+    BOOL didImageSave   = NO;
+    BOOL loggingEnabled = ((kXAIImageCacheDebuggingMode == YES) && kXAIImageCacheDebuggingLevel >= 2);
     
     // Check to see if there is image contents to be saved.
     if (image == nil) {
@@ -249,7 +250,7 @@
     
     @autoreleasepool {
         // File path to save the contents of the image.
-        NSString *imagePath = [self imagePathWithURL:imageURL temporary:tempStorage];
+        NSString *filePath  = [self imagePathWithURL:imageURL temporary:tempStorage];
         
         // Data from image contents, to be saved to the file system.
         NSData *imageData   = ((kXAIImageCacheTempAsPNG == YES) && (tempStorage == YES))
@@ -258,12 +259,22 @@
                ? UIImageJPEGRepresentation(image, 1.0f)
                : UIImagePNGRepresentation(image));
         
+        // Monitor any write access errors.
+        NSError *writeError = nil;
+        
+        // Writing options, based on storage state.
+        NSDataWritingOptions writeOptions = (tempStorage) ? NSDataWritingFileProtectionNone : NSDataWritingAtomic;
+        
         // Check to see if the image contents was saved.
-        didImageSave = [imageData writeToFile:imagePath atomically:!tempStorage];
+        didImageSave = [imageData writeToFile:filePath options:writeOptions error:&writeError];
         
         // Debugging.
-        if (!didImageSave && kXAIImageCacheDebuggingMode) {
-            NSLog(@"Failed to save image to disk for path: %@", imagePath);
+        if ((!didImageSave || writeError != nil) && loggingEnabled) {
+            NSLog(@"Failed to save image to disk for path: %@", [self imagePathWithURL:imageURL temporary:tempStorage]);
+            
+            if (writeError != nil) {
+                NSLog(@"Error writing file: %@", [writeError localizedDescription]);
+            }
         }
     }
     
