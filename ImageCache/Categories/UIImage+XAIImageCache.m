@@ -31,7 +31,7 @@
     NSDate *startDate = nil;
     BOOL successful   = YES;
     
-    if (kXAIImageCacheDebuggingMode && kXAIImageCacheDebuggingLevel >= 0) {
+    if (XAIImageCacheDebuggingLevelCurrentState >= XAIImageCacheDebuggingLevelLow) {
         startDate = [NSDate date];
     }
     
@@ -55,32 +55,32 @@
                 /** Check to expand the width and height for the tile frame. */
                 for (NSUInteger z = 0; z <= 1; z++) {
                     /** Move the width upwards. */
-                    if (floorf((xAxis - kXAIImageCacheCropEdgeOverflow) + width) < floorf(self.size.width)) {
+                    if (floorf((xAxis - XAIImageCacheCropEdgeOverflow) + width) < floorf(self.size.width)) {
                         if (floorf(xAxis) == 0.0f && z > 0) {
                             continue;
                         }
                         
-                        width += kXAIImageCacheCropEdgeOverflow;
+                        width += XAIImageCacheCropEdgeOverflow;
                     }
                     
                     /** Move the height upwards. */
-                    if (floorf((yAxis - kXAIImageCacheCropEdgeOverflow) + height) < floorf(self.size.height)) {
+                    if (floorf((yAxis - XAIImageCacheCropEdgeOverflow) + height) < floorf(self.size.height)) {
                         if (floorf(yAxis) == 0.0f && z > 0) {
                             continue;
                         }
                         
-                        height += kXAIImageCacheCropEdgeOverflow;
+                        height += XAIImageCacheCropEdgeOverflow;
                     }
                 }
                 
                 /** Move the X axis back. */
-                if (floorf(xAxis - kXAIImageCacheCropEdgeOverflow) > 0.0f) {
-                    xAxis -= kXAIImageCacheCropEdgeOverflow;
+                if (floorf(xAxis - XAIImageCacheCropEdgeOverflow) > 0.0f) {
+                    xAxis -= XAIImageCacheCropEdgeOverflow;
                 }
                 
                 /** Move the Y axis back. */
-                if (floorf(yAxis - kXAIImageCacheCropEdgeOverflow) > 0.0f) {
-                    yAxis -= kXAIImageCacheCropEdgeOverflow;
+                if (floorf(yAxis - XAIImageCacheCropEdgeOverflow) > 0.0f) {
+                    yAxis -= XAIImageCacheCropEdgeOverflow;
                 }
             }
             
@@ -99,7 +99,7 @@
                 if (!savedImage) {
                     successful = NO;
                     
-                    if (kXAIImageCacheDebuggingMode && kXAIImageCacheDebuggingLevel >= 0) {
+                    if (XAIImageCacheDebuggingLevelCurrentState >= XAIImageCacheDebuggingLevelLow) {
                         NSLog(@"Image not saved for URL: %@", sliceURL);
                     }
                 }
@@ -107,7 +107,7 @@
         }
     }
     
-    if (kXAIImageCacheDebuggingMode && kXAIImageCacheDebuggingLevel >= 0) {
+    if (XAIImageCacheDebuggingLevelCurrentState >= XAIImageCacheDebuggingLevelLow) {
         NSTimeInterval timeSince = [[NSDate date] timeIntervalSinceDate:startDate];
         
         NSLog(@"Time: %f for %s", timeSince, __PRETTY_FUNCTION__);

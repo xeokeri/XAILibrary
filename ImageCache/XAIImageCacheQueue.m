@@ -14,12 +14,6 @@
 #import "NSError+XAILogging.h"
 #import "NSException+XAILogging.h"
 
-@interface XAIImageCacheQueue()
-
-@property (nonatomic) dispatch_queue_t serialQueue;
-
-@end
-
 @implementation XAIImageCacheQueue
 
 @synthesize urlList;
@@ -28,8 +22,7 @@
     self = [super init];
     
     if (self) {
-        self.urlList     = [NSMutableArray array];
-        self.serialQueue = dispatch_queue_create("XAIImageCacheAddOperationQueue", DISPATCH_QUEUE_SERIAL);
+        self.urlList = [NSMutableArray array];
     }
     
     return self;
@@ -55,42 +48,42 @@
 }
 
 - (void)addOperation:(NSOperation *)op {
-    dispatch_async(self.serialQueue, ^{
-        dispatch_sync(dispatch_get_main_queue(), ^{
-            if ([op isKindOfClass:[XAIImageCacheOperation class]]) {
-                NSString *operationURL = ((XAIImageCacheOperation *)op).downloadURL;
-                
-                if (operationURL.length > 0) {
-                    BOOL shouldAddOperation = NO;
-                    
-                    @try {
-                        if  (![self.urlList containsObject:operationURL]) {
-                            if (op) {
+    // Check to see if [super addOperation:op] should be called.
+    if ([op isKindOfClass:[XAIImageCacheOperation class]]) {
+        NSString *operationURL = ((XAIImageCacheOperation *)op).downloadURL;
+        
+        if (operationURL.length > 0) {
+            BOOL shouldAddOperation = NO;
+            
+            @try {
+                if  (![self.urlList containsObject:operationURL]) {
+                    if (op) {
+                        shouldAddOperation = YES;
+                    }
+                } else {
+                    for (NSOperation *pendingOp in [self operations]) {
+                        if ([pendingOp isCancelled] && [pendingOp isKindOfClass:[XAIImageCacheOperation class]]) {
+                            NSString *pendingURL = ((XAIImageCacheOperation *)op).downloadURL;
+                            
+                            if (pendingOp && [pendingURL isEqualToString:operationURL]) {
                                 shouldAddOperation = YES;
                             }
-                        } else {
-                            for (NSOperation *pendingOp in [self operations]) {
-                                if ([pendingOp isCancelled] && [pendingOp isKindOfClass:[XAIImageCacheOperation class]]) {
-                                    NSString *pendingURL = ((XAIImageCacheOperation *)op).downloadURL;
-                                    
-                                    if (pendingOp && [pendingURL isEqualToString:operationURL]) {
-                                        shouldAddOperation = YES;
-                                    }
-                                }
-                            }
-                        }
-                    } @catch (NSException *exception) {
-                        [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
-                    } @finally {
-                        if (shouldAddOperation) {
-                            [self.urlList addObject:operationURL];
-                            [super addOperation:op];
                         }
                     }
                 }
+            } @catch (NSException *exception) {
+                [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
+            } @finally {
+                // Check to see if the operation should successfully be added.
+                if (shouldAddOperation) {
+                    [self.urlList addObject:operationURL];
+                    
+                    // Operation can be added.
+                    [super addOperation:op];
+                }
             }
-        });
-    });
+        }
+    }
 }
 
 - (void)removeURL:(NSString *)url {
