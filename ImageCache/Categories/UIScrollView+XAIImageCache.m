@@ -2,7 +2,7 @@
 //  UIScrollView+XAIImageCache.m
 //  XAIImageCache
 //
-//  Created by Xeon Xai <xeonxai@me.com> on 6/6/12.
+//  Created by Xeon Xai <xeonxai@me.com> on 4/11/12.
 //  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
 //
 
@@ -26,7 +26,7 @@
 - (void)imageWithURL:(NSString *)url atIndexPath:(NSIndexPath *)indexPath delegate:(id <XAIImageCacheDelegate>)incomingDelegate size:(CGSize)imageSize {
     [[XAIImageCacheStorage sharedStorage] cacheCleanup];
     
-    NSString *cacheURL   = (imageSize.width != CGSizeZero.width && imageSize.height != CGSizeZero.height) ? [url cachedURLForImageSize:imageSize] : url;
+    NSString *cacheURL   = (!CGSizeEqualToSize(CGSizeZero, imageSize)) ? [url cachedURLForImageSize:imageSize] : url;
     UIImage *cachedImage = [[XAIImageCacheStorage sharedStorage] cachedImageForURL:cacheURL];
     
     if (cachedImage) {

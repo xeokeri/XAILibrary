@@ -8,8 +8,6 @@
 
 #import "NSString+XAIImageCache.h"
 
-#import <CommonCrypto/CommonDigest.h>
-
 @implementation NSString (XAIImageCache)
 
 /** For use with resized images. */
@@ -19,7 +17,7 @@
 
 /** For use with sliced images. */
 - (NSString *)cachedURLForImageRect:(CGRect)imageRect {
-    return [NSString stringWithFormat:@"%@?x=%.2f&y=%.2f&width=%.2f&height=%.2f", self, floorf(imageRect.origin.x), floorf(imageRect.origin.y), floorf(imageRect.size.width), floorf(imageRect.size.height)];
+    return [NSString stringWithFormat:@"%@?x=%.2f&y=%.2f&width=%.2f&height=%.2f", self, floorf(CGRectGetMinX(imageRect)), floorf(CGRectGetMinY(imageRect)), floorf(CGRectGetWidth(imageRect)), floorf(CGRectGetHeight(imageRect))];
 }
 
 @end

@@ -2,7 +2,7 @@
 //  UIScrollView+XAIImageCache.h
 //  XAIImageCache
 //
-//  Created by Xeon Xai <xeonxai@me.com> on 6/6/12.
+//  Created by Xeon Xai <xeonxai@me.com> on 4/11/12.
 //  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
 //
 

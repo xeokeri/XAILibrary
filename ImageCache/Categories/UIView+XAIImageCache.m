@@ -22,7 +22,7 @@
 - (void)imageWithURL:(NSString *)url atIndexPath:(NSIndexPath *)indexPath delegate:(id <XAIImageCacheDelegate>)incomingDelegate size:(CGSize)imageSize {
     [[XAIImageCacheStorage sharedStorage] cacheCleanup];
     
-    NSString *cacheURL   = (imageSize.width != CGSizeZero.width && imageSize.height != CGSizeZero.height) ? [url cachedURLForImageSize:imageSize] : url;
+    NSString *cacheURL   = (!CGSizeEqualToSize(CGSizeZero, imageSize)) ? [url cachedURLForImageSize:imageSize] : url;
     UIImage *cachedImage = [[XAIImageCacheStorage sharedStorage] cachedImageForURL:cacheURL];
     
     if (cachedImage) {
