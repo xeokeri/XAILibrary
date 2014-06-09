@@ -46,9 +46,9 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStorageFlushInterval) {
 
 #pragma mark - Image Delete
 
-- (BOOL)flushTemporaryStorage;
 - (void)cacheCleanup;
-- (void)deleteImageForURL:(NSString *)imageURL temporary:(BOOL)tempStorage;
+- (BOOL)flushTemporaryStorage;
+- (BOOL)deleteImageWithURL:(NSString *)imageURL temporary:(BOOL)tempStorage;
 
 #pragma mark - Image Memory Flush All
 

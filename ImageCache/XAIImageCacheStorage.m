@@ -30,7 +30,8 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
 
 - (NSString *)imagePathWithURL:(NSString *)imageURL temporary:(BOOL)tempStorage;
 - (NSString *)filteredCachePathForTemporaryStorage:(BOOL)tempStorage;
-- (BOOL)deleteImageForFilePath:(NSString *)filePath;
+- (BOOL)deleteCacheFileWithURL:(NSURL *)fileURL;
+- (BOOL)deleteImageWithFilePath:(NSString *)filePath;
 
 @end
 
@@ -292,60 +293,6 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
 
 #pragma mark - Image - Delete
 
-- (BOOL)flushTemporaryStorage {
-    BOOL successful     = YES;
-    BOOL loggingEnabled = ((XAIImageCacheDebuggingLevelCurrentState >= XAIImageCacheDebuggingLevelMedium));
-    
-    @try {
-        NSError *dirReadError      = nil;
-        NSString *cacheFolder      = [self filteredCachePathForTemporaryStorage:YES];
-        NSFileManager *fileManager = [NSFileManager defaultManager];
-        NSArray *cacheFiles        = [fileManager contentsOfDirectoryAtPath:cacheFolder error:&dirReadError];
-        
-        if (dirReadError != nil) {
-            [dirReadError logDetailsFailedOnSelector:_cmd line:__LINE__];
-        } else {
-            for (NSString *aCachedFile in cacheFiles) {
-                NSString *fileDir  = [[NSString alloc] initWithString:cacheFolder];
-                NSString *filePath = [fileDir stringByAppendingPathComponent:aCachedFile];
-                BOOL fileExists    = [fileManager fileExistsAtPath:filePath];
-                BOOL isDeletable   = [fileManager isDeletableFileAtPath:filePath];
-                
-                #if !__has_feature(objc_arc)
-                    [fileDir release];
-                #endif
-                
-                if (fileExists && isDeletable) {
-                    [self deleteImageForFilePath:filePath];
-                    /** Monitor any file access errors. */
-                    NSError *removeError = nil;
-                    
-                    /** Remove the old file from the cache. */
-                    BOOL didRemoveFile   = [fileManager removeItemAtPath:filePath error:&removeError];
-                    
-                    if (!didRemoveFile) {
-                        if (loggingEnabled) {
-                            NSLog(@"Image not removed for file path: %@", filePath);
-                        }
-                        
-                        successful = NO;
-                    }
-                    
-                    if ((removeError != nil) && loggingEnabled) {
-                        [removeError logDetailsFailedOnSelector:_cmd line:__LINE__];
-                    }
-                }
-            }
-        }
-    } @catch (NSException *exception) {
-        [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
-        
-        successful = NO;
-    }
-    
-    return successful;
-}
-
 - (void)cacheCleanup {
     NSUserDefaults *defaults       = [NSUserDefaults standardUserDefaults];
     NSDate *currentDate            = [[NSDate alloc] init];
@@ -354,6 +301,7 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
     CGFloat updateTimeframe        = (60.0f * 60.0f * 24.0f * [numberOfDays doubleValue]); // seconds, minutes, hours, days...
     NSTimeInterval currentInterval = [currentDate timeIntervalSinceNow];
     BOOL isFlushRequired           = NO;
+    BOOL loggingEnabled            = ((XAIImageCacheDebuggingLevelCurrentState >= XAIImageCacheDebuggingLevelMedium));
     
     // Check to see if a cache flush has previously been performed, otherwise set the default date.
     if (updatedDate == nil) {
@@ -385,7 +333,9 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
         
         // Check directory read access.
         if (dirReadError != nil) {
-            [dirReadError logDetailsFailedOnSelector:_cmd line:__LINE__];
+            if (loggingEnabled) {
+                [dirReadError logDetailsFailedOnSelector:_cmd line:__LINE__];
+            }
         } else {
             for (NSString *aCachedFile in cachedFiles) {
                 NSString *fileDir  = [[NSString alloc] initWithString:cacheFolder];
@@ -402,7 +352,9 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
                     NSDictionary *fileAttributes = [fileManager attributesOfItemAtPath:filePath error:&fileError];
                     
                     if (fileError != nil) {
-                        [fileError logDetailsFailedOnSelector:_cmd line:__LINE__];
+                        if (loggingEnabled) {
+                            [fileError logDetailsFailedOnSelector:_cmd line:__LINE__];
+                        }
                         
                         continue;
                     }
@@ -414,7 +366,7 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
                     NSTimeInterval lastModifiedInterval = [lastModified timeIntervalSinceNow];
                     
                     if ((currentInterval - lastModifiedInterval) > updateTimeframe) {
-                        [self deleteImageForFilePath:filePath];
+                        [self deleteImageWithFilePath:filePath];
                     }
                 }
             }
@@ -422,65 +374,103 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
     } @catch (NSException *exception) {
         [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
     } @finally {
-        [defaults setObject:[NSDate date] forKey:XAIImageCacheFlushPerformed];
+        NSDate *refreshDate = [[NSDate alloc] init];
+        
+        [defaults setObject:refreshDate forKey:XAIImageCacheFlushPerformed];
     }
 }
 
-- (BOOL)deleteImageForFilePath:(NSString *)filePath {
-    /**  Logging state. */
-    BOOL loggingEnabled = (XAIImageCacheDebuggingLevelCurrentState >= XAIImageCacheDebuggingLevelMedium);
+- (BOOL)flushTemporaryStorage {
+    BOOL successful     = YES;
+    BOOL loggingEnabled = ((XAIImageCacheDebuggingLevelCurrentState >= XAIImageCacheDebuggingLevelMedium));
     
-    /** Monitor any file access errors. */
-    NSError *removeError = nil;
-    
-    /** File manager. */
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    
-    /** Remove the old file from the cache. */
-    BOOL didRemoveFile = [fileManager removeItemAtPath:filePath error:&removeError];
-    
-    if (!didRemoveFile && loggingEnabled) {
-        NSLog(@"Image not removed for file path: %@", filePath);
+    @try {
+        NSError *dirReadError      = nil;
+        NSString *cacheFolder      = [self filteredCachePathForTemporaryStorage:YES];
+        NSFileManager *fileManager = [NSFileManager defaultManager];
+        NSArray *cacheFiles        = [fileManager contentsOfDirectoryAtPath:cacheFolder error:&dirReadError];
+        
+        if (dirReadError != nil) {
+            if (loggingEnabled) {
+                [dirReadError logDetailsFailedOnSelector:_cmd line:__LINE__];
+            }
+        } else {
+            for (NSString *aCachedFile in cacheFiles) {
+                NSString *fileDir  = [[NSString alloc] initWithString:cacheFolder];
+                NSString *filePath = [fileDir stringByAppendingPathComponent:aCachedFile];
+                
+                #if !__has_feature(objc_arc)
+                    [fileDir release];
+                #endif
+                
+                BOOL didRemoveFile = [self deleteImageWithFilePath:filePath];
+                
+                if (!didRemoveFile) {
+                    successful = NO;
+                }
+            }
+        }
+    } @catch (NSException *exception) {
+        [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
+        
+        successful = NO;
     }
     
-    if ((removeError != nil) && loggingEnabled) {
-        [removeError logDetailsFailedOnSelector:_cmd line:__LINE__];
-    }
-    
-    return didRemoveFile;
+    return successful;
 }
 
-- (void)deleteImageForURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
+- (BOOL)deleteCacheFileWithURL:(NSURL *)fileURL {
+    // Track the removal success state.
+    __block BOOL didRemoveFile;
+    
     // Logging state.
     BOOL loggingEnabled = (XAIImageCacheDebuggingLevelCurrentState >= XAIImageCacheDebuggingLevelMedium);
     
     NSFileCoordinator *fileCoordinator = [[NSFileCoordinator alloc] init];
     NSError *writeError                = nil;
     
-    // Local file URL to delete.
-    NSURL *fileURL = [self filePathWithImageURL:imageURL temporary:tempStorage];
-    
     // Use the file coordinator to ensure the file can be written and deleted.
     [fileCoordinator coordinateWritingItemAtURL:fileURL options:NSFileCoordinatorWritingForDeleting error:&writeError byAccessor:^(NSURL *filteredDeleteURL) {
         if (writeError != nil) {
             [writeError logDetailsFailedOnSelector:_cmd line:__LINE__];
-        } else {
-            NSFileManager *fileManager = [NSFileManager defaultManager];
-            NSError *deleteError       = nil;
             
-            // Remove the file from the cache.
-            BOOL didRemoveFile = [fileManager removeItemAtURL:filteredDeleteURL error:&deleteError];
-            
-            if (!didRemoveFile && loggingEnabled) {
-                NSLog(@"Image not removed for URL: %@", fileURL);
-            }
-            
-            // Log any errors.
-            if ((deleteError != nil) && loggingEnabled) {
-                [deleteError logDetailsFailedOnSelector:_cmd line:__LINE__];
-            }
+            return;
+        }
+        
+        NSFileManager *fileManager = [NSFileManager defaultManager];
+        NSError *deleteError       = nil;
+        
+        // Remove the file from the cache.
+        didRemoveFile = [fileManager removeItemAtURL:filteredDeleteURL error:&deleteError];
+        
+        if (!didRemoveFile && loggingEnabled) {
+            NSLog(@"Image not removed for URL: %@", fileURL);
+        }
+        
+        // Log any errors.
+        if ((deleteError != nil) && loggingEnabled) {
+            [deleteError logDetailsFailedOnSelector:_cmd line:__LINE__];
         }
     }];
+    
+    return didRemoveFile;
+}
+
+- (BOOL)deleteImageWithFilePath:(NSString *)filePath {
+    // Local file URL to delete.
+    NSURL *fileURL  = [[NSURL alloc] initFileURLWithPath:filePath];
+    
+    return [self deleteCacheFileWithURL:fileURL];
+}
+
+- (BOOL)deleteImageWithURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
+    // Local file URL to delete.
+    NSURL *fileURL = [self filePathWithImageURL:imageURL temporary:tempStorage];
+    
+    // Remove the memory cache for the URL.
+    [self clearMemoryStorageForURL:imageURL];
+    
+    return [self deleteCacheFileWithURL:fileURL];
 }
 
 #pragma mark - Image - Memory Flush All
