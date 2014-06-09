@@ -14,6 +14,12 @@
 #import "NSError+XAILogging.h"
 #import "NSException+XAILogging.h"
 
+@interface XAIImageCacheQueue()
+
+@property (nonatomic) dispatch_queue_t serialQueue;
+
+@end
+
 @implementation XAIImageCacheQueue
 
 @synthesize urlList;
@@ -22,7 +28,8 @@
     self = [super init];
     
     if (self) {
-        self.urlList = [NSMutableArray array];
+        self.urlList     = [NSMutableArray array];
+        self.serialQueue = dispatch_queue_create("XAIImageCacheAddOperationQueue", DISPATCH_QUEUE_SERIAL);
     }
     
     return self;
@@ -30,55 +37,60 @@
 
 + (XAIImageCacheQueue *)sharedQueue {
     static XAIImageCacheQueue *instanceQueue;
+    static dispatch_once_t onceToken;
     
-    @synchronized(self) {
-        if (!instanceQueue) {
+    dispatch_once(&onceToken, ^{
+        #ifndef DEBUG
             NSAssert(instanceQueue == nil, @"InstanceQueue should be nil.");
-            
-            instanceQueue = [[self alloc] init];
-        }
-    }
+        #endif
+        
+        instanceQueue = [[self alloc] init];
+    });
     
-    NSAssert(instanceQueue, @"InstanceQueue should not be nil.");
+    #ifndef DEBUG
+        NSAssert(instanceQueue, @"InstanceQueue should not be nil.");
+    #endif
     
     return instanceQueue;
 }
 
 - (void)addOperation:(NSOperation *)op {
-    @synchronized(self) {
-        if ([op isKindOfClass:[XAIImageCacheOperation class]]) {
-            NSString *operationURL = ((XAIImageCacheOperation *)op).downloadURL;
-            
-            if (operationURL.length > 0) {
-                BOOL shouldAddOperation = NO;
+    dispatch_async(self.serialQueue, ^{
+        dispatch_sync(dispatch_get_main_queue(), ^{
+            if ([op isKindOfClass:[XAIImageCacheOperation class]]) {
+                NSString *operationURL = ((XAIImageCacheOperation *)op).downloadURL;
                 
-                @try {
-                    if  (![self.urlList containsObject:operationURL]) {
-                        if (op) {
-                            shouldAddOperation = YES;
-                        }
-                    } else {
-                        for (NSOperation *pendingOp in [self operations]) {
-                            if ([pendingOp isCancelled] && [pendingOp isKindOfClass:[XAIImageCacheOperation class]]) {
-                                NSString *pendingURL = ((XAIImageCacheOperation *)op).downloadURL;
-                                
-                                if (pendingOp && [pendingURL isEqualToString:operationURL]) {
-                                    shouldAddOperation = YES;
+                if (operationURL.length > 0) {
+                    BOOL shouldAddOperation = NO;
+                    
+                    @try {
+                        if  (![self.urlList containsObject:operationURL]) {
+                            if (op) {
+                                shouldAddOperation = YES;
+                            }
+                        } else {
+                            for (NSOperation *pendingOp in [self operations]) {
+                                if ([pendingOp isCancelled] && [pendingOp isKindOfClass:[XAIImageCacheOperation class]]) {
+                                    NSString *pendingURL = ((XAIImageCacheOperation *)op).downloadURL;
+                                    
+                                    if (pendingOp && [pendingURL isEqualToString:operationURL]) {
+                                        shouldAddOperation = YES;
+                                    }
                                 }
                             }
                         }
-                    }
-                } @catch (NSException *exception) {
-                    [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
-                } @finally {
-                    if (shouldAddOperation) {
-                        [self.urlList addObject:operationURL];
-                        [super addOperation:op];
+                    } @catch (NSException *exception) {
+                        [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
+                    } @finally {
+                        if (shouldAddOperation) {
+                            [self.urlList addObject:operationURL];
+                            [super addOperation:op];
+                        }
                     }
                 }
             }
-        }
-    }
+        });
+    });
 }
 
 - (void)removeURL:(NSString *)url {

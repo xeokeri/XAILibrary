@@ -168,7 +168,7 @@
         }
         
         /** Set the request and the connection. */
-        NSURLRequest *request   = [[NSURLRequest alloc] initWithURL:[NSURL URLWithString:self.downloadURL] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:kXAIImageCacheTimeoutInterval];
+        NSURLRequest *request   = [[NSURLRequest alloc] initWithURL:[NSURL URLWithString:self.downloadURL] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:XAIImageCacheTimeoutInterval];
         NSOperationQueue *queue = [[NSOperationQueue alloc] init];
         
         // Download the image asynchronously.
@@ -243,7 +243,7 @@
     }
     
     /** Set the request and the connection. */
-    NSURLRequest *request   = [[NSURLRequest alloc] initWithURL:[NSURL URLWithString:self.downloadURL] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:kXAIImageCacheTimeoutInterval];
+    NSURLRequest *request   = [[NSURLRequest alloc] initWithURL:[NSURL URLWithString:self.downloadURL] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:XAIImageCacheTimeoutInterval];
     NSURLConnection *conn   = [[NSURLConnection alloc] initWithRequest:request delegate:self];
     
     self.downloadConnection = conn;
@@ -455,7 +455,7 @@
             [imageCacheDelegate processCachedImage:imageContent atIndexPath:self.containerIndexPath];
         } else {
             [UIView beginAnimations:@"XAIImageCacheLoadImageWithFade" context:nil];
-            [UIView setAnimationDuration:kXAIImageCacheFadeInDuration];
+            [UIView setAnimationDuration:XAIImageCacheFadeInDuration];
             
             if ([imageCacheDelegate respondsToSelector:@selector(setHidden:)]) {
                 [imageCacheDelegate setHidden:NO];
