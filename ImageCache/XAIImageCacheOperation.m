@@ -322,6 +322,7 @@
     
     [self.downloadConnection cancel];
     
+    // Remove the URL from the queue.
     [[XAIImageCacheQueue sharedQueue] removeURL:self.downloadURL];
     
     [self changeStatus:YES forType:kXAIImageCacheStatusTypeFinished];
@@ -331,6 +332,9 @@
 - (void)updateOperationStatusForBlock {
     /** Clear out the operation callback. */
     _operationBlock = nil;
+    
+    // Remove the URL from the queue.
+    [[XAIImageCacheQueue sharedQueue] removeURL:self.downloadURL];
     
     [self changeStatus:YES forType:kXAIImageCacheStatusTypeFinished];
     [self changeStatus:NO forType:kXAIImageCacheStatusTypeExecuting];
