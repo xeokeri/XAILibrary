@@ -7,12 +7,12 @@
 //
 
 /** BOOL */
-BOOL const XAIImageCacheTempAsPNG               = NO;
+#define XAIImageCacheTempAsPNG                      NO
 
 /** CGFloat */
-CGFloat const XAIImageCacheTimeoutInterval      = 15.0f;
-CGFloat const XAIImageCacheFadeInDuration       = 0.25f;
-CGFloat const XAIImageCacheCropEdgeOverflow     = 2.0f;
+#define XAIImageCacheTimeoutInterval                15.0f
+#define XAIImageCacheFadeInDuration                 0.25f
+#define XAIImageCacheCropEdgeOverflow               2.0f
 
 /** Debugging Levels */
 typedef NS_ENUM(NSUInteger, XAIImageCacheDebuggingLevel) {
@@ -23,4 +23,4 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheDebuggingLevel) {
 };
 
 /** Debugging State */
-XAIImageCacheDebuggingLevel const XAIImageCacheDebuggingLevelCurrentState = XAIImageCacheDebuggingLevelMedium;
+#define XAIImageCacheDebuggingLevelCurrentState     XAIImageCacheDebuggingLevelMedium
