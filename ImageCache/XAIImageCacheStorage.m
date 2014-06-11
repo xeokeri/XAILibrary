@@ -123,7 +123,7 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
 - (NSString *)imagePathWithURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
     NSString
         *encodedName  = [imageURL md5HexEncode],
-        *imagePathExt = [imageURL pathExtension],
+        *imagePathExt = [(NSString *)[[imageURL componentsSeparatedByString:@"?"] firstObject] pathExtension],
         *imagePath    = [[self filteredCachePathForTemporaryStorage:tempStorage] stringByAppendingPathComponent:encodedName];
     
     if ([imagePathExt length] > 0) {
