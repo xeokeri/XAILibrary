@@ -23,17 +23,12 @@
 /** XAIImageCache Protocols */
 #import "XAIImageCacheDelegate.h"
 
-typedef enum {
-    kXAIImageCacheStatusTypeFinished  = 0,
-    kXAIImageCacheStatusTypeExecuting = 1
-} XAIImageCacheStatusType;
-
 /** XAIImageCacheOperationBlock */
 typedef void (^XAIImageCacheOperationBlock)(UIImage *img, NSError *err);
 
 @interface XAIImageCacheOperation : NSOperation {
     @private
-    id <XAIImageCacheDelegate> __weak delegateView;
+    id <XAIImageCacheDelegate> __weak  delegateView;
     XAIImageCacheOperationBlock        operationBlock;
     
     NSMutableData   *receivedData;

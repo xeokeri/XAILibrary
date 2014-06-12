@@ -21,6 +21,12 @@
 #import "NSError+XAILogging.h"
 #import "NSException+XAILogging.h"
 
+/** NSOperation Status Flags */
+typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
+    XAIImageCacheStatusTypeFinished  = 0,
+    XAIImageCacheStatusTypeExecuting = 1
+};
+
 @interface XAIImageCacheOperation() <NSURLConnectionDataDelegate>
 
 - (void)resetData;
@@ -56,8 +62,6 @@
         self.containerSize      = CGSizeZero;
         self.downloadPort       = [[NSPort alloc] init];
         self.receivedData       = [[NSMutableData alloc] init];
-        self.operationExecuting = NO;
-        self.operationFinished  = NO;
     }
     
     return self;
@@ -71,6 +75,7 @@
     if (self) {
         self.downloadURL    = imageURL;
         self.operationBlock = callback;
+        self.queuePriority  = NSOperationQueuePriorityHigh;
     }
     
     return self;
@@ -117,7 +122,7 @@
     if (self) {
         _delegateView           = ([incomingDelegate isKindOfClass:[UITableView class]]) ? nil : incomingDelegate;
         self.downloadURL        = imageURL;
-        self.loadImageResized   = (CGSizeZero.width == imageSize.width && CGSizeZero.height == imageSize.height) ? NO : YES;
+        self.loadImageResized   = (!CGSizeEqualToSize(CGSizeZero, imageSize));
         self.containerSize      = imageSize;
         self.containerIndexPath = indexPath;
     }
@@ -149,7 +154,7 @@
 
 - (void)start {
     // Start the execution.
-    [self changeStatus:YES forType:kXAIImageCacheStatusTypeExecuting];
+    [self changeStatus:YES forType:XAIImageCacheStatusTypeExecuting];
     
     // Check for the callback block.
     if (self.operationBlock != nil) {
@@ -234,7 +239,7 @@
         [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
     } @finally {
         if (self.shouldLoadImageResized) {
-            if (self.containerSize.width == CGSizeZero.width && self.containerSize.height == CGSizeZero.height) {
+            if (CGSizeEqualToSize(CGSizeZero, self.containerSize)) {
                 [self updateOperationStatus];
                 
                 return;
@@ -285,7 +290,7 @@
 
 - (void)changeStatus:(BOOL)status forType:(XAIImageCacheStatusType)type {
     switch (type) {
-        case kXAIImageCacheStatusTypeFinished: {
+        case XAIImageCacheStatusTypeFinished: {
             [self willChangeValueForKey:@"isFinished"];
             self.operationFinished = status;
             [self didChangeValueForKey:@"isFinished"];
@@ -293,7 +298,7 @@
             
             break;
             
-        case kXAIImageCacheStatusTypeExecuting: {
+        case XAIImageCacheStatusTypeExecuting: {
             [self willChangeValueForKey:@"isExecuting"];
             self.operationExecuting = status;
             [self didChangeValueForKey:@"isExecuting"];
@@ -315,7 +320,7 @@
 
 - (void)updateOperationStatus {
     /** Reset the delegate. */
-    _delegateView = nil;
+    _delegateView   = nil;
     
     /** Remove the port. */
     [[NSRunLoop currentRunLoop] removePort:self.downloadPort forMode:NSDefaultRunLoopMode];
@@ -325,8 +330,8 @@
     // Remove the URL from the queue.
     [[XAIImageCacheQueue sharedQueue] removeURL:self.downloadURL];
     
-    [self changeStatus:YES forType:kXAIImageCacheStatusTypeFinished];
-    [self changeStatus:NO forType:kXAIImageCacheStatusTypeExecuting];
+    [self changeStatus:YES forType:XAIImageCacheStatusTypeFinished];
+    [self changeStatus:NO forType:XAIImageCacheStatusTypeExecuting];
 }
 
 - (void)updateOperationStatusForBlock {
@@ -353,7 +358,7 @@
 #pragma mark - UIImage
 
 - (UIImage *)dataAsUIImage {
-    return [UIImage imageWithData:self.receivedData];
+    return [[UIImage alloc] initWithData:self.receivedData];
 }
 
 #pragma mark - NSURLConnectionDataDelegate
