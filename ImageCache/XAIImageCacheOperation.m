@@ -429,20 +429,30 @@
     
     // Check to see if the image should be cached.
     if (cacheStore == YES) {
+        // Save the original file.
         [[XAIImageCacheStorage sharedStorage] saveImage:imageContent forURL:self.downloadURL];
         
         NSString *cachedURL = [self.downloadURL cachedURLForImageSize:self.containerSize];
+        BOOL isEqualSize    = CGSizeEqualToSize(imageContent.size, self.containerSize);
+        BOOL bothSidesDiff  = (imageContent.size.width != self.containerSize.width) && (imageContent.size.height != self.containerSize.height); // TODO: Migrate to a better function.
         
-        if (self.shouldLoadImageResized && imageContent.size.width == self.containerSize.width && imageContent.size.height == self.containerSize.height) {
-            [[XAIImageCacheStorage sharedStorage] saveImage:imageContent forURL:cachedURL];
-            
-            [self setLoadImageResized:NO];
-        }
-        
-        if (self.shouldLoadImageResized && imageContent.size.width != self.containerSize.width && imageContent.size.height != self.containerSize.height) {
-            resizedImage = [imageContent resizeToFillSize:self.containerSize];
-            
-            [[XAIImageCacheStorage sharedStorage] saveImage:resizedImage forURL:cachedURL];
+        // Check to see if the image should be resized.
+        if (self.shouldLoadImageResized) {
+            if (isEqualSize) {
+                // Save the original image with the cache image size URL.
+                [[XAIImageCacheStorage sharedStorage] saveImage:imageContent forURL:cachedURL];
+                
+                // Reset the image resize state.
+                [self setLoadImageResized:NO];
+            } else if (bothSidesDiff) {
+                // Resize the image accordingly.
+                resizedImage = [imageContent resizeToFillSize:self.containerSize];
+                
+                // Save the resized image to the cache.
+                [[XAIImageCacheStorage sharedStorage] saveImage:resizedImage forURL:cachedURL];
+            } else {
+                // Do nothing...
+            }
         }
     }
     
