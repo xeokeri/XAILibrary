@@ -247,8 +247,9 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
     
     /** Set the request and the connection. */
     NSURLRequest *request   = [[NSURLRequest alloc] initWithURL:[NSURL URLWithString:self.downloadURL] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:XAIImageCacheTimeoutInterval];
-    NSURLConnection *conn   = [[NSURLConnection alloc] initWithRequest:request delegate:self];
+    NSURLConnection *conn   = [[NSURLConnection alloc] initWithRequest:request delegate:self startImmediately:NO];
     
+    /** Store the connection. */
     self.downloadConnection = conn;
     
     #if !__has_feature(objc_arc)
