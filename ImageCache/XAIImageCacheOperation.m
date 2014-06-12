@@ -238,12 +238,10 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
     } @catch (NSException *exception) {
         [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
     } @finally {
-        if (self.shouldLoadImageResized) {
-            if (CGSizeEqualToSize(CGSizeZero, self.containerSize)) {
-                [self updateOperationStatus];
-                
-                return;
-            }
+        if (self.shouldLoadImageResized && CGSizeEqualToSize(CGSizeZero, self.containerSize)) {
+            [self updateOperationStatus];
+            
+            return;
         }
     }
     
