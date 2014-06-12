@@ -341,8 +341,8 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
     // Remove the URL from the queue.
     [[XAIImageCacheQueue sharedQueue] removeURL:self.downloadURL];
     
-    [self changeStatus:YES forType:kXAIImageCacheStatusTypeFinished];
-    [self changeStatus:NO forType:kXAIImageCacheStatusTypeExecuting];
+    [self changeStatus:YES forType:XAIImageCacheStatusTypeFinished];
+    [self changeStatus:NO forType:XAIImageCacheStatusTypeExecuting];
 }
 
 #pragma mark - NSData
