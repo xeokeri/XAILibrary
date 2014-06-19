@@ -22,7 +22,7 @@
     self = [super init];
     
     if (self) {
-        self.urlList = [NSMutableArray array];
+        self->urlList = [NSMutableArray array];
     }
     
     return self;
@@ -89,8 +89,8 @@
 - (void)removeURL:(NSString *)url {
     @synchronized(self) {
         @try {
-            if ([self.urlList containsObject:url]) {
-                [self.urlList removeObject:url];
+            if ([self->urlList containsObject:url]) {
+                [self->urlList removeObject:url];
             }
         } @catch (NSException *exception) {
             [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];

@@ -8,12 +8,9 @@
 
 #import <Foundation/Foundation.h>
 
-@interface XAIImageCacheQueue : NSOperationQueue {
-    @private
-    NSMutableArray *urlList;
-}
+@interface XAIImageCacheQueue : NSOperationQueue
 
-@property (nonatomic, strong) NSMutableArray *urlList;
+@property (nonatomic, strong, readonly) NSMutableArray *urlList;
 
 + (XAIImageCacheQueue *)sharedQueue;
 
