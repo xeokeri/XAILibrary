@@ -1,6 +1,6 @@
 #XAIImageCache (for iOS)
 
-A UIImage caching mechanism, that is configurable. Currently supports flushing of images older than a specified date, defaults to 7 days. With a max concurrence of 10 URL fetches at a time.
+A UIImage caching mechanism, that is configurable. Currently supports flushing of images older than a specified date, defaults to 7 days.
 
 ###Features:
 
