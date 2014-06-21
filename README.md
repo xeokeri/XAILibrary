@@ -23,8 +23,18 @@ A UIImage caching mechanism, that is configurable. Currently supports flushing o
 
     [cell.thumbnailView imageWithURL:@"http://localhost/path/to/your/image/file.png"];
 
+***UIScrollView Category***
+
+    - (void)imageWithURL:(NSString *)url atIndexPath:(NSIndexPath *)indexPath delegate:(id <XAIImageCacheDelegate>)incomingDelegate;
+
+    - (void)imageWithURL:(NSString *)url atIndexPath:(NSIndexPath *)indexPath delegate:(id <XAIImageCacheDelegate>)incomingDelegate size:(CGSize)imageSize;
+
+***Example***
+
+    [aScrollView imageWithURL:@"http://localhost/path/to/your/image/file.png" atIndexPath:anIndexPath delegate:aDelegate size:aSize];
+
 ###Note:
-I am currently using this on a UIImageView in a UITableView cell. It can be used on any UIImageView. It will then use NSOperationQueue, NSOperation, and NSURLConnection to fetch the image, then save to cache. If the image already exists in the cache, based on the URL string, it will use that first and bypass the NSOperationQueue completely.
+I am currently using this on a UIImageView in a UITableView cell, as well as using the delegate protocols connected to a UITableViewController and UICollectionView. It can be used on any UIImageView. It will then use NSOperationQueue, NSOperation, and NSURLConnection to fetch the image, then save to cache. If the image already exists in the cache, based on the URL string, it will use that first. It will then check to see if a modified file exists on the server. If a newer image exists, it will then download the new image. The updated image will refresh the storaged cache and the memory cache. Then it will pass back to the delegate and be able to refresh the image that is displaying.
 
 #XAIDataStorage
 
