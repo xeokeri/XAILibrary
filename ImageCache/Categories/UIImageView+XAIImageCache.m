@@ -3,7 +3,7 @@
 //  XAIImageCache
 //
 //  Created by Xeon Xai <xeonxai@me.com> on 2/24/12.
-//  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
+//  Copyright (c) 2011-2014 Black Panther White Leopard. All rights reserved.
 //
 
 #import "UIImageView+XAIImageCache.h"
@@ -24,7 +24,7 @@
     imageView.alpha  = 0.0f;
     imageView.hidden = YES;
 
-    XAIImageCacheOperation *cacheOperation = [[XAIImageCacheOperation alloc] initWithURL:imageURL delegate:imageView];
+    XAIImageCacheOperation *cacheOperation = [[XAIImageCacheOperation alloc] initWithURL:imageURL delegate:imageView size:CGSizeZero];
     
     [[XAIImageCacheQueue sharedQueue] addOperation:cacheOperation];
     
@@ -41,8 +41,6 @@
 }
 
 - (void)imageWithURL:(NSString *)url resize:(BOOL)resizeImage {
-    [[XAIImageCacheStorage sharedStorage] cacheCleanup];
-    
     CGSize cacheSize   = self.frame.size;
     CGFloat cacheScale = [[UIScreen mainScreen] scale];
     
@@ -51,30 +49,17 @@
         cacheSize.height = floorf(cacheSize.height * cacheScale);
     }
     
-    NSString *cacheURL   = (resizeImage) ? [url cachedURLForImageSize:cacheSize] : url;
-    UIImage *cachedImage = [[XAIImageCacheStorage sharedStorage] cachedImageForURL:cacheURL];
+    self.alpha  = 0.0f;
+    self.hidden = YES;
+    self.image  = nil;
     
-    if (cachedImage) {
-        @try {
-            self.image  = cachedImage;
-            self.hidden = NO;
-            self.alpha  = 1.0f;
-        } @catch (NSException *exception) {
-            [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
-        }
-    } else {
-        self.alpha  = 0.0f;
-        self.hidden = YES;
-        self.image  = nil;
-        
-        XAIImageCacheOperation *cacheOperation = [[XAIImageCacheOperation alloc] initWithURL:url delegate:self resize:resizeImage];
-        
-        [[XAIImageCacheQueue sharedQueue] addOperation:cacheOperation];
-        
-        #if !__has_feature(objc_arc)
-            [cacheOperation release];
-        #endif
-    }
+    XAIImageCacheOperation *cacheOperation = [[XAIImageCacheOperation alloc] initWithURL:url delegate:self size:cacheSize];
+    
+    [[XAIImageCacheQueue sharedQueue] addOperation:cacheOperation];
+    
+    #if !__has_feature(objc_arc)
+        [cacheOperation release];
+    #endif
 }
 
 @end

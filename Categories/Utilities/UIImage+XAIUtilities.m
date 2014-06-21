@@ -3,7 +3,7 @@
 //  XAILibrary Category
 //
 //  Created by Xeon Xai <xeonxai@me.com> on 12/9/11.
-//  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
+//  Copyright (c) 2011-2014 Black Panther White Leopard. All rights reserved.
 //
 
 #import "UIImage+XAIUtilities.h"
@@ -55,11 +55,13 @@
 #pragma mark - UIImage Crop
 
 - (UIImage *)cropInRect:(CGRect)rect {
+    CGRect cropRect = rect;
+    
     if (self.scale > 1.0f) {
-        rect = CGRectMake((rect.origin.x * self.scale), (rect.origin.y * self.scale), (rect.size.width * self.scale), (rect.size.height * self.scale));
+        cropRect = CGRectMake((cropRect.origin.x * self.scale), (cropRect.origin.y * self.scale), (cropRect.size.width * self.scale), (cropRect.size.height * self.scale));
     }
     
-    CGImageRef referenceImage = CGImageCreateWithImageInRect(self.CGImage, rect);
+    CGImageRef referenceImage = CGImageCreateWithImageInRect(self.CGImage, cropRect);
     UIImage *croppedImage     = [UIImage imageWithCGImage:referenceImage scale:self.scale orientation:UIImageOrientationUp];
     
     CGImageRelease(referenceImage);
@@ -77,8 +79,8 @@
     
     CGFloat
         scale  = [[UIScreen mainScreen] scale],
-        width  = (forcedScaleUp) ? (size.width * scale) : size.width,
-        height = (forcedScaleUp) ? (size.height * scale) : size.height,
+        width  = floorf((forcedScaleUp) ? (size.width * scale) : size.width),
+        height = floorf((forcedScaleUp) ? (size.height * scale) : size.height),
         x      = floorf((self.size.width - width) * 0.5f),
         y      = floorf((self.size.height - height) * 0.5f);
     
@@ -129,6 +131,60 @@
     return resizedImage;
 }
 
+#pragma mark - UIImage Rotate & Scale
+
++ (UIImage *)resizedCachedImageWithFilePath:(NSURL *)imagePath {
+    UIImage *resizedImage      = nil;
+    CGImageSourceRef imgSource = CGImageSourceCreateWithURL((__bridge CFURLRef)imagePath, NULL);
+    
+    if (!imgSource) {
+        return nil;
+    }
+    
+    @autoreleasepool {
+        CFDictionaryRef imageOptions = (__bridge CFDictionaryRef) @{
+            (id)kCGImageSourceCreateThumbnailWithTransform: (id)kCFBooleanTrue,
+            (id)kCGImageSourceCreateThumbnailFromImageIfAbsent: (id)kCFBooleanTrue,
+            (id)kCGImageSourceThumbnailMaxPixelSize: (id)@([UIImage maxSide])
+        };
+        
+        CGImageRef imageRef = CGImageSourceCreateThumbnailAtIndex(imgSource, 0, imageOptions);
+        
+        resizedImage = [UIImage imageWithCGImage:imageRef];
+        
+        CGImageRelease(imageRef);
+        CFRelease(imgSource);
+    }
+    
+    return resizedImage;
+}
+
+#pragma mark - UIImage Resizable
+
++ (UIImage *)resizableImageWithName:(NSString *)imageName {
+    UIImage *backgroundImage   = [UIImage imageNamed:imageName];
+    CGRect backgroundImageRect = {CGPointZero, backgroundImage.size};
+    
+    CGFloat
+        left   = floorf(CGRectGetMidX(backgroundImageRect)),
+        top    = floorf(CGRectGetMidY(backgroundImageRect)),
+        right  = floorf(left - 1.0f),
+        bottom = floorf(top - 1.0f);
+    
+    UIEdgeInsets
+        inset  = UIEdgeInsetsMake(top, left, bottom, right);
+    
+    if ([backgroundImage respondsToSelector:@selector(resizableImageWithCapInsets:resizingMode:)]) {
+        backgroundImage = [backgroundImage resizableImageWithCapInsets:inset resizingMode:UIImageResizingModeStretch];
+    } else if ([backgroundImage respondsToSelector:@selector(resizableImageWithCapInsets:)]) {
+        backgroundImage = [backgroundImage resizableImageWithCapInsets:inset];
+    } else {
+        // Do nothing.
+    }
+    
+    return backgroundImage;
+}
+
 #pragma mark - UIImage Resize
 
 - (UIImage *)resizeToFillThenCropToSize:(CGSize)size {
@@ -158,7 +214,7 @@
     
     CGRect imageFrame = CGRectMake(0.0f, 0.0f, imageResolution.width, imageResolution.height);
     
-    UIGraphicsBeginImageContext(imageResolution);
+    UIGraphicsBeginImageContextWithOptions(imageResolution, NO, 0.0f);
     
     [self drawInRect:imageFrame];
     
@@ -194,34 +250,6 @@
     UIGraphicsEndImageContext();
     
     return overlayImage;
-}
-
-#pragma mark - UIImage Rotate & Scale
-
-+ (UIImage *)resizedCachedImageWithFilePath:(NSURL *)imagePath {
-    UIImage *resizedImage      = nil;
-    CGImageSourceRef imgSource = CGImageSourceCreateWithURL((__bridge CFURLRef)imagePath, NULL);
-    
-    if (!imgSource) {
-        return nil;
-    }
-    
-    @autoreleasepool {
-        CFDictionaryRef imageOptions = (__bridge CFDictionaryRef) @{
-            (id)kCGImageSourceCreateThumbnailWithTransform: (id)kCFBooleanTrue,
-            (id)kCGImageSourceCreateThumbnailFromImageIfAbsent: (id)kCFBooleanTrue,
-            (id)kCGImageSourceThumbnailMaxPixelSize: (id)@([UIImage maxSide])
-        };
-        
-        CGImageRef imageRef = CGImageSourceCreateThumbnailAtIndex(imgSource, 0, imageOptions);
-        
-        resizedImage = [UIImage imageWithCGImage:imageRef];
-        
-        CGImageRelease(imageRef);
-        CFRelease(imgSource);
-    }
-    
-    return resizedImage;
 }
 
 @end

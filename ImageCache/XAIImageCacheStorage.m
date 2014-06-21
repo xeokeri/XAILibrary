@@ -3,7 +3,7 @@
 //  XAIImageCache
 //
 //  Created by Xeon Xai <xeonxai@me.com> on 4/15/12.
-//  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
+//  Copyright (c) 2011-2014 Black Panther White Leopard. All rights reserved.
 //
 
 #import "XAIImageCacheStorage.h"
@@ -14,6 +14,7 @@
 
 /** XAIUtility Categories */
 #import "NSString+XAIUtilities.h"
+#import "NSHTTPURLResponse+XAIUtilities.h"
 
 /** XAILogging */
 #import "NSError+XAILogging.h"
@@ -30,6 +31,7 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
 
 - (NSString *)imagePathWithURL:(NSString *)imageURL temporary:(BOOL)tempStorage;
 - (NSString *)filteredCachePathForTemporaryStorage:(BOOL)tempStorage;
+- (NSDictionary *)fileAttributesForURL:(NSString *)imageURL temporary:(BOOL)tempStorage;
 - (BOOL)deleteCacheFileWithURL:(NSURL *)fileURL;
 - (BOOL)deleteImageWithFilePath:(NSString *)filePath;
 
@@ -142,6 +144,37 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
     return [storageCachePathPrefix stringByAppendingPathComponent:storageCachePathComponent];
 }
 
+#pragma mark - Image - Last Modified Date
+
+- (NSDate *)lastModifiedDateForURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
+    NSDictionary *fileAttributes = [self fileAttributesForURL:imageURL temporary:tempStorage];
+    
+    return [fileAttributes fileModificationDate];
+}
+
+#pragma mark - Image - File Attributes
+
+- (NSDictionary *)fileAttributesForURL:(NSString *)imageURL temporary:(BOOL)tempStorage {
+    /** Track any errors for accessing the file attributes. */
+    NSError *attributeError  = nil;
+    
+    /** Debugging state. */
+    BOOL loggingEnabled      = (XAIImageCacheDebuggingLevelCurrentState >= XAIImageCacheDebuggingLevelMedium);
+    
+    // File path to the image.
+    NSString *filePath       = [self imagePathWithURL:imageURL temporary:tempStorage];
+    
+    /** Retreive the file attributes. */
+    NSDictionary *attributes = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:&attributeError];
+    
+    /** Debug logging. */
+    if (attributeError != nil && loggingEnabled) {
+        [attributeError logDetailsFailedOnSelector:_cmd line:__LINE__];
+    }
+    
+    return attributes;
+}
+
 #pragma mark - Image - Load
 
 - (UIImage *)cachedImageForURL:(NSString *)imageURL {
@@ -194,38 +227,6 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
             #if !__has_feature(objc_arc)
                 [imageData release];
             #endif
-            
-            /** Image is loaded, add the file attributes. */
-            if (cachedImage != nil) {
-                /** Debug logging. */
-                if (loggingEnabled) {
-                    NSLog(@"Loaded from disk for URL: %@", imageURL);
-                }
-                
-                /** Track any errors for updating the last modified date. */
-                NSError *attributeError  = nil;
-                
-                /** Retreive the file attributes. */
-                NSDictionary *attributes = [[NSFileManager defaultManager] attributesOfItemAtPath:imagePath error:&attributeError];
-                
-                /** Make the attributes writable. */
-                NSMutableDictionary *modifiedAttributes = [[NSMutableDictionary alloc] initWithDictionary:attributes copyItems:YES];
-                
-                /** Set the last modified date timestamp to the current date timestamp. */
-                modifiedAttributes[NSFileModificationDate] = [NSDate date];
-                
-                /** Save the file attributes for the image path. */
-                [[NSFileManager defaultManager] setAttributes:modifiedAttributes ofItemAtPath:imagePath error:&attributeError];
-                
-                #if !__has_feature(objc_arc)
-                    [modifiedAttributes release];
-                #endif
-                
-                /** Debug logging. */
-                if (attributeError != nil && loggingEnabled) {
-                    [attributeError logDetailsFailedOnSelector:_cmd line:__LINE__];
-                }
-            }
         }
     }
     
@@ -279,11 +280,13 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
         didImageSave = [imageData writeToFile:filePath options:writeOptions error:&writeError];
         
         // Debugging.
-        if ((!didImageSave || writeError != nil) && loggingEnabled) {
-            NSLog(@"Failed to save image to disk for path: %@", [self imagePathWithURL:imageURL temporary:tempStorage]);
-            
-            if (writeError != nil) {
-                NSLog(@"Error writing file: %@", [writeError localizedDescription]);
+        if ((!didImageSave || writeError != nil)) {
+            if (loggingEnabled) {
+                NSLog(@"Failed to save image to disk for path: %@", filePath);
+                
+                if (writeError != nil) {
+                    [writeError logDetailsFailedOnSelector:_cmd line:__LINE__];
+                }
             }
         }
     }
@@ -306,6 +309,7 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
     // Check to see if a cache flush has previously been performed, otherwise set the default date.
     if (updatedDate == nil) {
         [defaults setObject:currentDate forKey:XAIImageCacheFlushPerformed];
+        [defaults synchronize];
     } else {
         NSTimeInterval
             lastFlushInterval = [updatedDate timeIntervalSinceNow],
@@ -348,7 +352,7 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
                 #endif
                 
                 if (fileExists && isDeletable) {
-                    NSError *fileError = nil;
+                    NSError *fileError           = nil;
                     NSDictionary *fileAttributes = [fileManager attributesOfItemAtPath:filePath error:&fileError];
                     
                     if (fileError != nil) {
@@ -359,13 +363,13 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
                         continue;
                     }
                     
-                    /** File last modified date. */
-                    NSDate *lastModified = fileAttributes[NSFileModificationDate];
+                    /** File creation date. */
+                    NSDate *fileCreated = [fileAttributes fileCreationDate];
                     
-                    /** Time in seconds of last modified interval. */
-                    NSTimeInterval lastModifiedInterval = [lastModified timeIntervalSinceNow];
+                    /** Time in seconds of creation flush interval. */
+                    NSTimeInterval creationCheckInterval = [fileCreated timeIntervalSinceNow];
                     
-                    if ((currentInterval - lastModifiedInterval) > updateTimeframe) {
+                    if ((currentInterval - creationCheckInterval) > updateTimeframe) {
                         [self deleteImageWithFilePath:filePath];
                     }
                 }
@@ -377,6 +381,11 @@ NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
         NSDate *refreshDate = [[NSDate alloc] init];
         
         [defaults setObject:refreshDate forKey:XAIImageCacheFlushPerformed];
+        [defaults synchronize];
+        
+        #if !__has_feature(objc_arc)
+            [refreshDate release];
+        #endif
     }
 }
 

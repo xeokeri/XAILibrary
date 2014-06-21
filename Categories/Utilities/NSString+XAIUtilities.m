@@ -3,10 +3,11 @@
 //  XAILibrary Category
 //
 //  Created by Xeon Xai <xeonxai@me.com> on 4/28/14.
-//  Copyright (c) 2014 Black Panther White Leopard. All rights reserved.
+//  Copyright (c) 2011-2014 Black Panther White Leopard. All rights reserved.
 //
 
 #import "NSString+XAIUtilities.h"
+#import "NSURL+XAIUtilities.h"
 
 #import <CommonCrypto/CommonCrypto.h>
 
@@ -17,17 +18,9 @@
 /**
  Returns the base path to the applications's Document directory. (For use with prepoplated SQLite file)
  */
-+ (NSString *)applicationPathForDocumentsDirectory {
-    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-    
-    NSString *basePath = ([paths count] > 0) ? paths[0] : nil;
-    
-    return basePath;
-}
 
 + (NSString *)applicationPathForFileName:(NSString *)fileName ofType:(NSString *)fileType {
-    NSString *storeName        = [NSString stringWithFormat:@"%@.%@", fileName, fileType];
-    NSString *storePath        = [[self applicationPathForDocumentsDirectory] stringByAppendingPathComponent:storeName];
+    NSString *storePath        = [[[[NSURL applicationDocumentsDirectory] URLByAppendingPathComponent:fileName] URLByAppendingPathExtension:fileType] absoluteString];
     NSFileManager *fileManager = [NSFileManager defaultManager];
     NSError *error             = nil;
     

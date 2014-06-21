@@ -3,13 +3,13 @@
 //  XAIImageCache
 //
 //  Created by Xeon Xai <xeonxai@me.com> on 3/19/12.
-//  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
+//  Copyright (c) 2011-2014 Black Panther White Leopard. All rights reserved.
 //
 
 #import "XAIImageCacheQueue.h"
-#import "XAIImageCacheDefines.h"
 #import "XAIImageCacheOperation.h"
-
+#import "XAIImageCacheDefines.h"
+ 
 /** XAILogging */
 #import "NSError+XAILogging.h"
 #import "NSException+XAILogging.h"
@@ -120,7 +120,7 @@
     /** Set all the delegate views to nil. */
     for (NSOperation *op in [self operations]) {
         if ([op isKindOfClass:[XAIImageCacheOperation class]]) {
-            [((XAIImageCacheOperation *) op) setDelegateView:nil];
+            [((XAIImageCacheOperation *) op) setCacheDelegate:nil];
         }
     }
     

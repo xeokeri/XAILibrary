@@ -3,7 +3,7 @@
 //  XAILibrary Category
 //
 //  Created by Xeon Xai <xeonxai@me.com> on 12/9/11.
-//  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
+//  Copyright (c) 2011-2014 Black Panther White Leopard. All rights reserved.
 //
 
 #import <UIKit/UIKit.h>
@@ -23,6 +23,9 @@
 
 /** UIImage Scale */
 - (UIImage *)scaleAspectRatioToMaxTileSize;
+
+/** UIImage Resizable */
++ (UIImage *)resizableImageWithName:(NSString *)imageName;
 
 /** UIImage Resize */
 - (UIImage *)resizeToFillThenCropToSize:(CGSize)size;

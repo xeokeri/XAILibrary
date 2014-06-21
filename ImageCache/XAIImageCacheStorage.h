@@ -3,10 +3,11 @@
 //  XAIImageCache
 //
 //  Created by Xeon Xai <xeonxai@me.com> on 4/15/12.
-//  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
+//  Copyright (c) 2011-2014 Black Panther White Leopard. All rights reserved.
 //
 
 #import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 
 typedef NS_ENUM(NSUInteger, XAIImageCacheStorageFlushInterval) {
     XAIImageCacheStorageFlushIntervalDay         = 1,
@@ -37,6 +38,10 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStorageFlushInterval) {
 
 - (UIImage *)cachedImageForURL:(NSString *)imageURL;
 - (UIImage *)cachedImageForURL:(NSString *)imageURL temporary:(BOOL)tempStorage;
+
+#pragma mark - Image - Last Modified Date
+
+- (NSDate *)lastModifiedDateForURL:(NSString *)imageURL temporary:(BOOL)tempStorage;
 
 #pragma mark - Image Save
 

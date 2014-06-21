@@ -3,7 +3,7 @@
 //  XAIImageCache
 //
 //  Created by Xeon Xai <xeonxai@me.com> on 2/24/12.
-//  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
+//  Copyright (c) 2011-2014 Black Panther White Leopard. All rights reserved.
 //
 
 #import "XAIImageCacheOperation.h"
@@ -13,6 +13,7 @@
 
 /** XAIUtilities Categories */
 #import "UIImage+XAIUtilities.h"
+#import "NSHTTPURLResponse+XAIUtilities.h"
 
 /** XAIImageCache Categories */
 #import "NSString+XAIImageCache.h"
@@ -41,7 +42,7 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
 
 @implementation XAIImageCacheOperation
 
-@synthesize delegateView   = _delegateView;
+@synthesize cacheDelegate  = _cacheDelegate;
 @synthesize operationBlock = _operationBlock;
 
 @synthesize receivedData, downloadURL, downloadConnection, downloadPort;
@@ -55,7 +56,7 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
     self = [super init];
     
     if (self) {
-        _delegateView           = nil;
+        _cacheDelegate          = nil;
         self.operationBlock     = nil;
         self.containerIndexPath = nil;
         self.queuePriority      = NSOperationQueuePriorityVeryLow;
@@ -81,53 +82,35 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
     return self;
 }
 
-#pragma mark - Init for UIImageView and UIButton
+#pragma mark - Init for UIImageView, UIButton, and UIView
 
-- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id)incomingDelegate {
-    return [self initWithURL:imageURL delegate:incomingDelegate resize:YES];
-}
-
-- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id)incomingDelegate resize:(BOOL)imageResize {
+- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id /** <XAIImageCacheDelegate> */)incomingDelegate size:(CGSize)imageSize {
     self = [self init];
     
     if (self) {
-        _delegateView         = ([incomingDelegate isKindOfClass:[UITableView class]]) ? nil : incomingDelegate;
+        _cacheDelegate        = ([incomingDelegate isKindOfClass:[UITableView class]]) ? nil : incomingDelegate;
         self.downloadURL      = imageURL;
-        self.loadImageResized = imageResize;
-    }
-    
-    return self;    
-}
-
-#pragma mark - Init for UIView
-
-- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id)incomingDelegate size:(CGSize)imageSize {
-    self = [self init];
-    
-    if (self) {
-        _delegateView           = ([incomingDelegate isKindOfClass:[UITableView class]]) ? nil : incomingDelegate;
-        self.downloadURL        = imageURL;
-        self.loadImageResized   = YES;
-        self.containerSize      = imageSize;
+        self.loadImageResized = YES;
+        self.containerSize    = imageSize;
     }
     
     return self;  
 }
 
-#pragma mark - Init for UITableView and UIScrollView
+#pragma mark - Init for UITableView, and UIScrollView
 
-- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id)incomingDelegate atIndexPath:(NSIndexPath *)indexPath size:(CGSize)imageSize {
+- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id <XAIImageCacheDelegate>)incomingDelegate atIndexPath:(NSIndexPath *)indexPath size:(CGSize)imageSize {
     self = [self init];
     
     if (self) {
-        _delegateView           = ([incomingDelegate isKindOfClass:[UITableView class]]) ? nil : incomingDelegate;
+        _cacheDelegate          = ([incomingDelegate isKindOfClass:[UITableView class]]) ? nil : incomingDelegate;
         self.downloadURL        = imageURL;
         self.loadImageResized   = (!CGSizeEqualToSize(CGSizeZero, imageSize));
         self.containerSize      = imageSize;
         self.containerIndexPath = indexPath;
     }
     
-    return self;  
+    return self;
 }
 
 #pragma mark - Memory Management
@@ -141,7 +124,7 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
     #endif
     
     operationBlock = nil;
-    delegateView   = nil;
+    cacheDelegate  = nil;
     downloadPort   = nil;
     receivedData   = nil;
     
@@ -156,61 +139,118 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
     // Start the execution.
     [self changeStatus:YES forType:XAIImageCacheStatusTypeExecuting];
     
-    // Check for the callback block.
-    if (self.operationBlock != nil) {
-        // Check to see if the image is already cached, before trying to request it.
-        UIImage *cachedImage = [[XAIImageCacheStorage sharedStorage] cachedImageForURL:self.downloadURL];
+    // Clean up the cache if needed.
+    [[XAIImageCacheStorage sharedStorage] cacheCleanup];
     
-        // Verify the cached image exists.
-        if (cachedImage) {
-            // Process callback.
-            self.operationBlock(cachedImage, nil);
+    // Check the state, to see if the file is cached or should be downloaded.
+    BOOL shouldDownloadContent   = YES;
+    
+    // Check to see if the file is cached, and check the last modified date.
+    NSDate *fileLastModifiedDate = [[XAIImageCacheStorage sharedStorage] lastModifiedDateForURL:self.downloadURL temporary:YES];
+    
+    // If the last modified date is valid, check to see if the host file is newer.
+    if (fileLastModifiedDate != nil) {
+        NSError *headRequestError        = nil;
+        NSURLResponse *headResponse      = nil;
+        NSMutableURLRequest *headRequest = [[NSMutableURLRequest alloc] initWithURL:[NSURL URLWithString:self.downloadURL] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:XAIImageCacheTimeoutInterval];
+        
+        // Set to HEAD to fetch the headers.
+        [headRequest setHTTPMethod:@"HEAD"];
+        
+        // Request the headers.
+        [NSURLConnection sendSynchronousRequest:headRequest returningResponse:&headResponse error:&headRequestError];
+        
+        // Check to see if there were any errors.
+        if (headRequestError != nil) {
+            // Log any errors.
+            [headRequestError logDetailsFailedOnSelector:_cmd line:__LINE__];
+        } else {
+            // Filter the response headers for the "Last-Modified" date.
+            NSHTTPURLResponse *httpHeadResponse = (NSHTTPURLResponse *) headResponse;
+            NSDate *httpHeadLastModifiedDate    = [httpHeadResponse lastModifiedDate];
             
-            // Update the operation status to complete.
-            [self updateOperationStatusForBlock];
-            
-            return;
+            // Check to see if the file needs to be re-downloaded.
+            if ((httpHeadLastModifiedDate != nil) && ([fileLastModifiedDate compare:httpHeadLastModifiedDate] == NSOrderedDescending)) {
+                shouldDownloadContent = NO;
+            }
         }
         
+        #if !__has_feature(objc_arc)
+            [headRequest release];
+        #endif
+    }
+    
+    // Check to see if the image should be loaded from cache without fetching the image from the server.
+    if (!shouldDownloadContent) {
+        // Check to see which URL to filter for in the cache.
+        NSString *cacheURL   = (!CGSizeEqualToSize(CGSizeZero, self.containerSize)) ? [self.downloadURL cachedURLForImageSize:self.containerSize] : self.downloadURL;
+        
+        // Check to see if the image is already cached, before trying to request it.
+        UIImage *cachedImage = [[XAIImageCacheStorage sharedStorage] cachedImageForURL:cacheURL];
+        
+        // Verify the cached image exists.
+        if (cachedImage) {
+            // Check to see if the block operation callback is set.
+            if (self.operationBlock != nil) {
+                // Process callback.
+                self.operationBlock(cachedImage, nil);
+                
+                // Update the operation status to complete.
+                [self updateOperationStatusForBlock];
+            } else {
+                /** Load the image and store in the cache. */
+                [self updateDelegateWithImage:cachedImage cache:NO];
+                [self updateOperationStatus];
+            }
+            
+            // No need to proceed further.
+            return;
+        }
+    }
+    
+    // Check for the callback block.
+    if (self.operationBlock != nil) {
         /** Set the request and the connection. */
         NSURLRequest *request   = [[NSURLRequest alloc] initWithURL:[NSURL URLWithString:self.downloadURL] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:XAIImageCacheTimeoutInterval];
         NSOperationQueue *queue = [[NSOperationQueue alloc] init];
         
-        // Download the image asynchronously.
+        /** Download the image asynchronously. */
         [NSURLConnection sendAsynchronousRequest:request queue:queue completionHandler:^(NSURLResponse *response, NSData *data, NSError *connectionError) {
-            NSHTTPURLResponse
-                *httpResponse = (NSHTTPURLResponse *) response;
-            
-            NSString
-                *requestURL   = [[response URL] absoluteString];
-            
-            UIImage
-                *imageContent = nil;
-            
-            // Check for errors.
-            if (connectionError != nil) {
-                // Log any errors.
-                [connectionError logDetailsFailedOnSelector:_cmd line:__LINE__];
-            } else {
-                // Check for a valid HTTP status code.
-                if ([httpResponse statusCode] == 200) {
-                    imageContent = [UIImage imageWithData:data scale:[[UIScreen mainScreen] scale]];
+            @autoreleasepool {
+                NSHTTPURLResponse
+                    *httpResponse = (NSHTTPURLResponse *) response;
+                
+                NSString
+                    *requestURL   = [[response URL] absoluteString];
+                
+                UIImage
+                    *imageContent = nil;
+                
+                // Check for errors.
+                if (connectionError != nil) {
+                    // Log any errors.
+                    [connectionError logDetailsFailedOnSelector:_cmd line:__LINE__];
+                } else {
+                    // Check for a valid HTTP status code.
+                    if ([httpResponse statusCode] == 200) {
+                        imageContent = [UIImage imageWithData:data scale:[[UIScreen mainScreen] scale]];
+                    }
                 }
+                
+                // Cache the image as needed.
+                if (imageContent != nil) {
+                    [[XAIImageCacheStorage sharedStorage] saveImage:imageContent forURL:requestURL temporary:YES];
+                }
+                
+                // Check for the callback block.
+                if (self.operationBlock != nil) {
+                    // Process callback.
+                    self.operationBlock(imageContent, connectionError);
+                }
+                
+                // Update the operation status to complete.
+                [self updateOperationStatusForBlock];
             }
-            
-            // Cache the image as needed.
-            if (imageContent != nil) {
-                [[XAIImageCacheStorage sharedStorage] saveImage:imageContent forURL:requestURL];
-            }
-            
-            // Check for the callback block.
-            if (self.operationBlock != nil) {
-                // Process callback.
-                self.operationBlock(imageContent, connectionError);
-            }
-            
-            // Update the operation status to complete.
-            [self updateOperationStatusForBlock];
         }];
         
         return;
@@ -224,7 +264,7 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
     
     /** Configure the Container Size. */
     @try {
-        id imageCacheDelegate = _delegateView;
+        id imageCacheDelegate = _cacheDelegate;
         
         if (imageCacheDelegate && [imageCacheDelegate respondsToSelector:@selector(isKindOfClass:)]) {
             if ([imageCacheDelegate isKindOfClass:[UIButton class]]) {
@@ -311,20 +351,21 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
 
 - (void)checkOperationStatus {
     if (self.isCancelled) {
-        [self.downloadConnection cancel];
-        
         [self updateOperationStatus];
     }
 }
 
 - (void)updateOperationStatus {
     /** Reset the delegate. */
-    _delegateView   = nil;
+    _cacheDelegate = nil;
     
     /** Remove the port. */
     [[NSRunLoop currentRunLoop] removePort:self.downloadPort forMode:NSDefaultRunLoopMode];
     
-    [self.downloadConnection cancel];
+    // Stop the download.
+    if (self.downloadConnection != nil) {
+        [self.downloadConnection cancel];
+    }
     
     // Remove the URL from the queue.
     [[XAIImageCacheQueue sharedQueue] removeURL:self.downloadURL];
@@ -383,7 +424,7 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
     UIImage *imageContent = [self dataAsUIImage];
     
     if (self.isCancelled) {
-        _delegateView   = nil;
+        _cacheDelegate   = nil;
         _operationBlock = nil;
     } else {
         /** Load the image and store in the cache. */
@@ -403,7 +444,7 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
     }
     
     if (self.isCancelled) {
-        _delegateView   = nil;
+        _cacheDelegate   = nil;
         _operationBlock = nil;
     } else {
         /** Make sure the image is cleared out. */
@@ -424,7 +465,7 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
     }
     
     UIImage *resizedImage = nil;
-    id imageCacheDelegate = _delegateView;
+    id imageCacheDelegate = _cacheDelegate;
     
     // When image cache delegate or image content are nil, no further processing is needed.
     if (!imageCacheDelegate || !imageContent) {
@@ -444,7 +485,7 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
         if (self.shouldLoadImageResized) {
             if (isEqualSize) {
                 // Save the original image with the cache image size URL.
-                [[XAIImageCacheStorage sharedStorage] saveImage:imageContent forURL:cachedURL];
+                [[XAIImageCacheStorage sharedStorage] saveImage:imageContent forURL:cachedURL temporary:YES];
                 
                 // Reset the image resize state.
                 [self setLoadImageResized:NO];
@@ -453,14 +494,14 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
                 resizedImage = [imageContent resizeToFillSize:self.containerSize];
                 
                 // Save the resized image to the cache.
-                [[XAIImageCacheStorage sharedStorage] saveImage:resizedImage forURL:cachedURL];
+                [[XAIImageCacheStorage sharedStorage] saveImage:resizedImage forURL:cachedURL temporary:YES];
             } else {
                 // Do nothing...
             }
         }
     }
     
-    if (self.shouldLoadImageResized) {
+    if (self.shouldLoadImageResized && !CGSizeEqualToSize(CGSizeZero, self.containerSize)) {
         if (resizedImage == nil) {
             resizedImage = [imageContent resizeToFillSize:self.containerSize];
         }

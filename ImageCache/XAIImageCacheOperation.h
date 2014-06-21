@@ -3,8 +3,18 @@
 //  XAIImageCache
 //
 //  Created by Xeon Xai <xeonxai@me.com> on 2/24/12.
-//  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
+//  Copyright (c) 2011-2014 Black Panther White Leopard. All rights reserved.
 //
+
+#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
+#import <CoreGraphics/CGGeometry.h>
+
+/** XAIImageCache Protocols */
+#import "XAIImageCacheDelegate.h"
+
+/** XAIImageCacheOperationBlock */
+typedef void (^XAIImageCacheOperationBlock)(UIImage *img, NSError *err);
 
 /**
  * XAIImageCache Features:
@@ -16,19 +26,9 @@
  * 5: Support for image cache removable based on date length.
  *
  */
-
-#import <Foundation/Foundation.h>
-#import <CoreGraphics/CGGeometry.h>
-
-/** XAIImageCache Protocols */
-#import "XAIImageCacheDelegate.h"
-
-/** XAIImageCacheOperationBlock */
-typedef void (^XAIImageCacheOperationBlock)(UIImage *img, NSError *err);
-
 @interface XAIImageCacheOperation : NSOperation {
     @private
-    id <XAIImageCacheDelegate> __weak  delegateView;
+    id <XAIImageCacheDelegate> __weak  cacheDelegate;
     XAIImageCacheOperationBlock        operationBlock;
     
     NSMutableData   *receivedData;
@@ -46,7 +46,7 @@ typedef void (^XAIImageCacheOperationBlock)(UIImage *img, NSError *err);
     BOOL operationFinished;
 }
 
-@property (nonatomic, weak) id <XAIImageCacheDelegate> delegateView;
+@property (nonatomic, weak) id <XAIImageCacheDelegate> cacheDelegate;
 @property (nonatomic, copy) XAIImageCacheOperationBlock operationBlock;
 
 @property (nonatomic, strong) NSMutableData   *receivedData;
@@ -63,9 +63,7 @@ typedef void (^XAIImageCacheOperationBlock)(UIImage *img, NSError *err);
 @property (nonatomic, getter = shouldLoadImageResized) BOOL loadImageResized;
 
 - (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL usingBlock:(XAIImageCacheOperationBlock)callback;
-- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id)incomingDelegate;
-- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id)incomingDelegate resize:(BOOL)imageResize;
-- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id)incomingDelegate size:(CGSize)imageSize;
-- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id)incomingDelegate atIndexPath:(NSIndexPath *)indexPath size:(CGSize)imageSize;
+- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id /** <XAIImageCacheDelegate> */)incomingDelegate size:(CGSize)imageSize;
+- (XAIImageCacheOperation *)initWithURL:(NSString *)imageURL delegate:(id <XAIImageCacheDelegate>)incomingDelegate atIndexPath:(NSIndexPath *)indexPath size:(CGSize)imageSize;
 
 @end
