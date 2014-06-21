@@ -49,10 +49,6 @@ SQLite3 library for fetching, updating, inserting, and deleting records.
 
 I use this logging for a bit of CoreData debugging, as well as any other NSError or NSException console logging.
 
-#Licensing
-
-I don't believe much in license lingo of open source code bases. If you want to use this, use it. If you want to fix bugs. Fix them. If you want to request or add features, be my guest. If the code breaks your app, I'm not at fault. What may work for some, won't work for all cases. If you use it, at least give me credit for something. Though I repeat, if your app breaks, I'm not responsible.
-
 #Requirements
 
 Minimum verison of iOS 6, with the intention of switching to NSURLSession which will require iOS 7 or higher.
@@ -60,3 +56,7 @@ Minimum verison of iOS 6, with the intention of switching to NSURLSession which 
 #Versioning Notes
 
 Expect changes that will break from version to version, meaning that what works one day might require major changes in the next version to make it more slim lined, or more robust. If I get bored with how bad I wrote it the first time, I'll completely rewrite it and do something over completely, making the next version better, but barely compatible with the previous version without changing all the init lines in the code that calls my library files. The more I learn, the more I improve. The more I improve, the cleaner and more empowered the code will become.
+
+#Licensing
+
+I don't believe much in license lingo of open source code bases. If you want to use this, use it. If you want to fix bugs. Fix them. If you want to request or add features, be my guest. If the code breaks your app, I'm not at fault. What may work for some, won't work for all cases. If you use it, at least give me credit for something. Though I repeat, if your app breaks, I'm not responsible.
