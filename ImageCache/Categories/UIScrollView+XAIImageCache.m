@@ -25,6 +25,23 @@
 }
 
 - (void)imageWithURL:(NSString *)url atIndexPath:(NSIndexPath *)indexPath delegate:(id <XAIImageCacheDelegate>)incomingDelegate size:(CGSize)imageSize {
+    NSString *cacheURL   = (!CGSizeEqualToSize(CGSizeZero, imageSize)) ? [url cachedURLForImageSize:imageSize] : url;
+    UIImage *cachedImage = [[XAIImageCacheStorage sharedStorage] cachedImageForURL:cacheURL];
+    
+    if (cachedImage) {
+        @try {
+            if ([incomingDelegate respondsToSelector:@selector(processCachedImage:atIndexPath:)]) {
+                [incomingDelegate processCachedImage:cachedImage atIndexPath:indexPath];
+            }
+        } @catch (NSException *exception) {
+            [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
+        }
+    }
+    
+    /**
+     * Perform the operation even if an image was found.
+     * In the event a newer image is available, the cached image will be updated.
+     */
     XAIImageCacheOperation *cacheOperation = [[XAIImageCacheOperation alloc] initWithURL:url delegate:incomingDelegate atIndexPath:indexPath size:imageSize];
     
     [[XAIImageCacheQueue sharedQueue] addOperation:cacheOperation];

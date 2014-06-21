@@ -52,9 +52,30 @@
         cacheSize.height = floorf(cacheSize.height * cacheScale);
     }
     
-    self.hidden          = YES;
-    self.alpha           = 0.0f;
+    NSString *cacheURL   = (resizeImage) ? [url cachedURLForImageSize:cacheSize] : url;
+    UIImage *cachedImage = [[XAIImageCacheStorage sharedStorage] cachedImageForURL:cacheURL];
     
+    if (cachedImage) {
+        @try {
+            [self setHidden:NO];
+            
+            if ([self respondsToSelector:@selector(processCachedImage:)]) {
+                [self performSelector:@selector(processCachedImage:) withObject:cachedImage];
+            } else {
+                [self setImage:cachedImage forState:UIControlStateNormal];
+            }
+        } @catch (NSException *exception) {
+            [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
+        }
+    } else {
+        self.hidden = YES;
+        self.alpha  = 0.0f;
+    }
+    
+    /**
+     * Perform the operation even if an image was found.
+     * In the event a newer image is available, the cached image will be updated.
+     */
     XAIImageCacheOperation *cacheOperation = [[XAIImageCacheOperation alloc] initWithURL:url delegate:self size:cacheSize];
     
     [[XAIImageCacheQueue sharedQueue] addOperation:cacheOperation];
