@@ -11,7 +11,6 @@ A UIImage caching mechanism, that is configurable. Currently supports flushing o
 * Support for image cache flushing based on date stamp. Defaults to 7 days.
 
 ###Pending:
-* Update for ARC support.
 * Add inline documentation to code.
 
 ###Instructions:
@@ -43,6 +42,10 @@ I use this logging for a bit of CoreData debugging, as well as any other NSError
 #Licensing
 
 I don't believe much in license lingo of open source code bases. If you want to use this, use it. If you want to fix bugs. Fix them. If you want to request or add features, be my guest. If the code breaks your app, I'm not at fault. What may work for some, won't work for all cases. If you use it, at least give me credit for something. Though I repeat, if your app breaks, I'm not responsible.
+
+#Requirements
+
+Minimum verison of iOS 6, with the intention of switching to NSURLSession which will require iOS 7 or higher.
 
 #Versioning Notes
 
