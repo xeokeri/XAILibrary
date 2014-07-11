@@ -63,6 +63,7 @@ static XAIDataStorage *dataStorageInstance;
 }
 
 #pragma mark - Memory Management
+
 - (void)dealloc {
     /** End notifications. */
     [[NSNotificationCenter defaultCenter] removeObserver:self];

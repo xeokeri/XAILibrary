@@ -21,9 +21,9 @@
 #import "NSException+XAILogging.h"
 
 /** NSString */
-NSString * const XAIImageCacheFlushPerformed    = @"ImageCacheFlushLastPerformed";
-NSString * const XAIImageCacheDirectoryPathTemp = @"ImageCache";
-NSString * const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
+NSString *const XAIImageCacheFlushPerformed    = @"ImageCacheFlushLastPerformed";
+NSString *const XAIImageCacheDirectoryPathTemp = @"ImageCache";
+NSString *const XAIImageCacheDirectoryPathPerm = @"ImageStorage";
 
 @interface XAIImageCacheStorage()
 
