@@ -8,8 +8,8 @@
 
 #import "NSHTTPURLResponse+XAIUtilities.h"
 
-NSString * const kXAIUtilitiesLastModifiedHeaderKey  = @"Last-Modified";
-NSString * const kXAIUtilitiesLastModifiedDateFormat = @"EEE',' dd' 'MMM' 'yyyy HH':'mm':'ss zzz";
+NSString *const kXAIUtilitiesLastModifiedHeaderKey  = @"Last-Modified";
+NSString *const kXAIUtilitiesLastModifiedDateFormat = @"EEE',' dd' 'MMM' 'yyyy HH':'mm':'ss zzz";
 
 @implementation NSHTTPURLResponse (XAIUtilities)
 

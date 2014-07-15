@@ -9,8 +9,8 @@
 #import <Foundation/Foundation.h>
 #import <CoreData/CoreData.h>
 
-COREDATA_EXTERN NSString * const XAIDataStorageManagedObjectContextDidSaveNotification;
-COREDATA_EXTERN NSString * const XAIDataStorageManagedObjectContextObjectsDidChangeNotification;
+COREDATA_EXTERN NSString *const XAIDataStorageManagedObjectContextDidSaveNotification;
+COREDATA_EXTERN NSString *const XAIDataStorageManagedObjectContextObjectsDidChangeNotification;
 
 @interface XAIDataStorageNotification : NSObject
 
