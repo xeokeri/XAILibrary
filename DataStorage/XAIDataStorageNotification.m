@@ -8,8 +8,8 @@
 
 #import "XAIDataStorageNotification.h"
 
-NSString * const XAIDataStorageManagedObjectContextDidSaveNotification          = @"XAIDataStorageManagedObjectContextDidSaveNotification";
-NSString * const XAIDataStorageManagedObjectContextObjectsDidChangeNotification = @"XAIDataStorageManagedObjectContextObjectsDidChangeNotification";
+NSString *const XAIDataStorageManagedObjectContextDidSaveNotification          = @"XAIDataStorageManagedObjectContextDidSaveNotification";
+NSString *const XAIDataStorageManagedObjectContextObjectsDidChangeNotification = @"XAIDataStorageManagedObjectContextObjectsDidChangeNotification";
 
 @implementation XAIDataStorageNotification
 
