@@ -323,9 +323,11 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
             self.operationExecuting = status;
             [self didChangeValueForKey:@"isExecuting"];
         }
+            
             break;
             
         default:
+            
             break;
     }
 }
