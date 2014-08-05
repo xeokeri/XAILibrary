@@ -28,15 +28,14 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
     XAIImageCacheStatusTypeExecuting = 1
 };
 
-@interface XAIImageCacheOperation() <NSURLConnectionDataDelegate>
+@interface XAIImageCacheOperation() <NSURLSessionDownloadDelegate>
 
-- (void)resetData;
 - (void)checkOperationStatus;
 - (void)changeStatus:(BOOL)status forType:(XAIImageCacheStatusType)type;
 - (void)updateOperationStatus;
 - (void)updateOperationStatusForBlock;
 - (void)updateDelegateWithImage:(UIImage *)imageContent cache:(BOOL)cacheStore;
-- (UIImage *)dataAsUIImage;
+- (UIImage *)imageWithFileURL:(NSURL *)location;
 
 @end
 
@@ -45,7 +44,7 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
 @synthesize cacheDelegate  = _cacheDelegate;
 @synthesize operationBlock = _operationBlock;
 
-@synthesize receivedData, downloadURL, downloadConnection, downloadPort;
+@synthesize downloadURL, downloadSession;
 @synthesize operationFinished, operationExecuting;
 @synthesize loadImageResized;
 @synthesize containerSize, containerIndexPath;
@@ -61,8 +60,6 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
         self.containerIndexPath = nil;
         self.queuePriority      = NSOperationQueuePriorityVeryLow;
         self.containerSize      = CGSizeZero;
-        self.downloadPort       = [[NSPort alloc] init];
-        self.receivedData       = [[NSMutableData alloc] init];
     }
     
     return self;
@@ -117,16 +114,13 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
 
 - (void)dealloc {
     #if !__has_feature(objc_arc)
-        [receivedData release];
         [downloadURL release];
-        [downloadConnection release];
-        [downloadPort release];
+        [downloadSession release];
     #endif
     
-    operationBlock = nil;
-    cacheDelegate  = nil;
-    downloadPort   = nil;
-    receivedData   = nil;
+    downloadSession = nil;
+    operationBlock  = nil;
+    cacheDelegate   = nil;
     
     #if !__has_feature(objc_arc)
         [super dealloc];
@@ -208,14 +202,18 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
         }
     }
     
+    /** Set the request and the session. */
+    NSURLRequest *sessionRequest             = [[NSURLRequest alloc] initWithURL:[NSURL URLWithString:self.downloadURL] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:XAIImageCacheTimeoutInterval];
+    NSOperationQueue *sessionQueue           = [[NSOperationQueue alloc] init];
+    NSURLSessionConfiguration *sessionConfig = [NSURLSessionConfiguration ephemeralSessionConfiguration];
+    NSURLSession *aSession                   = [NSURLSession sessionWithConfiguration:sessionConfig delegate:self delegateQueue:sessionQueue];
+    
+    self.downloadSession = aSession;
+    
     // Check for the callback block.
     if (self.operationBlock != nil) {
-        /** Set the request and the connection. */
-        NSURLRequest *request   = [[NSURLRequest alloc] initWithURL:[NSURL URLWithString:self.downloadURL] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:XAIImageCacheTimeoutInterval];
-        NSOperationQueue *queue = [[NSOperationQueue alloc] init];
-        
         /** Download the image asynchronously. */
-        [NSURLConnection sendAsynchronousRequest:request queue:queue completionHandler:^(NSURLResponse *response, NSData *data, NSError *connectionError) {
+        NSURLSessionDownloadTask *downloadTask = [self.downloadSession downloadTaskWithRequest:sessionRequest completionHandler:^(NSURL *location, NSURLResponse *response, NSError *connectionError) {
             @autoreleasepool {
                 NSHTTPURLResponse
                     *httpResponse = (NSHTTPURLResponse *) response;
@@ -233,7 +231,7 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
                 } else {
                     // Check for a valid HTTP status code.
                     if ([httpResponse statusCode] == 200) {
-                        imageContent = [UIImage imageWithData:data scale:[[UIScreen mainScreen] scale]];
+                        imageContent = [self imageWithFileURL:location];
                     }
                 }
                 
@@ -252,6 +250,8 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
                 [self updateOperationStatusForBlock];
             }
         }];
+        
+        [downloadTask resume];
         
         return;
     }
@@ -285,30 +285,11 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
         }
     }
     
-    /** Set the request and the connection. */
-    NSURLRequest *request   = [[NSURLRequest alloc] initWithURL:[NSURL URLWithString:self.downloadURL] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:XAIImageCacheTimeoutInterval];
-    NSURLConnection *conn   = [[NSURLConnection alloc] initWithRequest:request delegate:self startImmediately:NO];
+    /** Download the image asynchronously. */
+    NSURLSessionDownloadTask *downloadTask = [self.downloadSession downloadTaskWithRequest:sessionRequest];
     
-    /** Store the connection. */
-    self.downloadConnection = conn;
-    
-    #if !__has_feature(objc_arc)
-        [conn release];
-        [request release];
-    #endif
-    
-    /** Set the port for the NSRunLoop and start the download connection. */
-    if (self.downloadConnection) {
-        NSRunLoop *runLoop = [NSRunLoop currentRunLoop];
-        
-        [runLoop addPort:self.downloadPort forMode:NSDefaultRunLoopMode];
-        
-        [self.downloadConnection scheduleInRunLoop:runLoop forMode:NSRunLoopCommonModes];
-        
-        [self.downloadConnection start];
-        
-        [runLoop run];
-    }
+    /** Start the session download. */
+    [downloadTask resume];
     
     [self checkOperationStatus];
 }
@@ -342,11 +323,9 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
             self.operationExecuting = status;
             [self didChangeValueForKey:@"isExecuting"];
         }
-            
             break;
             
         default:
-            
             break;
     }
 }
@@ -361,15 +340,12 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
     /** Reset the delegate. */
     _cacheDelegate = nil;
     
-    /** Remove the port. */
-    [[NSRunLoop currentRunLoop] removePort:self.downloadPort forMode:NSDefaultRunLoopMode];
-    
-    // Stop the download.
-    if (self.downloadConnection != nil) {
-        [self.downloadConnection cancel];
+    /** Stop the download. */
+    if (self.downloadSession != nil) {
+        [self.downloadSession invalidateAndCancel];
     }
     
-    // Remove the URL from the queue.
+    /** Remove the URL from the queue. */
     [[XAIImageCacheQueue sharedQueue] removeURL:self.downloadURL];
     
     [self changeStatus:YES forType:XAIImageCacheStatusTypeFinished];
@@ -387,74 +363,68 @@ typedef NS_ENUM(NSUInteger, XAIImageCacheStatusType) {
     [self changeStatus:NO forType:XAIImageCacheStatusTypeExecuting];
 }
 
-#pragma mark - NSData
-
-- (void)resetData {
-    @try {
-        [self.receivedData setLength:0];
-    } @catch (NSException *exception) {
-        [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
-    }
-}
-
 #pragma mark - UIImage
 
-- (UIImage *)dataAsUIImage {
-    return [[UIImage alloc] initWithData:self.receivedData];
-}
-
-#pragma mark - NSURLConnectionDataDelegate
-
-- (NSURLRequest *)connection:(NSURLConnection *)connection willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response {
-    return request;
-}
-
-- (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response {
-    [self resetData];
-    [self checkOperationStatus];
-}
-
-- (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data {
-    if (self.isCancelled) {
-        [self updateOperationStatus];
+- (UIImage *)imageWithFileURL:(NSURL *)location {
+    UIImage *imageContent  = nil;
+    NSError *fileLoadError = nil;
+    NSData *imageData      = [[NSData alloc] initWithContentsOfURL:location options:NSDataReadingUncached error:&fileLoadError];
+    
+    if (fileLoadError != nil) {
+        [fileLoadError logDetailsFailedOnSelector:_cmd line:__LINE__];
     } else {
-        [self.receivedData appendData:data];
+        UIImage *image = [[UIImage alloc] initWithData:imageData scale:[[UIScreen mainScreen] scale]];
+        
+        imageContent = image;
+        
+        #if !__has_feature(objc_arc)
+            [image release];
+        #endif
     }
+    
+    #if !__has_feature(objc_arc)
+        [imageData release];
+    #endif
+    
+    return imageContent;
 }
 
-- (void)connectionDidFinishLoading:(NSURLConnection *)connection {
-    UIImage *imageContent = [self dataAsUIImage];
+- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
+    if (error != nil) {
+        [error logDetailsFailedOnSelector:_cmd line:__LINE__];
+        
+        if (self.isCancelled) {
+            _cacheDelegate  = nil;
+            _operationBlock = nil;
+        } else {
+            /** Make sure the image is cleared out. */
+            [self updateDelegateWithImage:nil cache:NO];
+        }
+    }
+    
+    [self updateOperationStatus];
+}
+
+#pragma mark - NSURLSessionDownloadTask Delegate
+
+- (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didFinishDownloadingToURL:(NSURL *)location {
+    UIImage *imageContent = [self imageWithFileURL:location];
     
     if (self.isCancelled) {
-        _cacheDelegate   = nil;
+        _cacheDelegate  = nil;
         _operationBlock = nil;
     } else {
         /** Load the image and store in the cache. */
         [self updateDelegateWithImage:imageContent cache:YES];
     }
-    
-    [self resetData];
-    [self checkOperationStatus];
-    [self updateOperationStatus];
 }
 
-#pragma mark - NSURLConnectionDelegate
+- (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didWriteData:(int64_t)bytesWritten totalBytesWritten:(int64_t)totalBytesWritten totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
+    [self checkOperationStatus];
+}
 
-- (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error {
-    if (error != nil) {
-        [error logDetailsFailedOnSelector:_cmd line:__LINE__];
-    }
-    
-    if (self.isCancelled) {
-        _cacheDelegate   = nil;
-        _operationBlock = nil;
-    } else {
-        /** Make sure the image is cleared out. */
-        [self updateDelegateWithImage:nil cache:NO];
-    }
-    
-    [self resetData];
-    [self updateOperationStatus];
+- (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didResumeAtOffset:(int64_t)fileOffset expectedTotalBytes:(int64_t)expectedTotalBytes {
+    // TODO: Implement further.
 }
 
 #pragma mark - Delegate View Callback

@@ -31,10 +31,8 @@ typedef void (^XAIImageCacheOperationBlock)(UIImage *img, NSError *err);
     id <XAIImageCacheDelegate> __weak  cacheDelegate;
     XAIImageCacheOperationBlock        operationBlock;
     
-    NSMutableData   *receivedData;
     NSString        *downloadURL;
-    NSPort          *downloadPort;
-    NSURLConnection *downloadConnection;
+    NSURLSession    *downloadSession;
     NSIndexPath     *containerIndexPath;
     
     CGSize containerSize;
@@ -49,10 +47,8 @@ typedef void (^XAIImageCacheOperationBlock)(UIImage *img, NSError *err);
 @property (nonatomic, weak) id <XAIImageCacheDelegate> cacheDelegate;
 @property (nonatomic, copy) XAIImageCacheOperationBlock operationBlock;
 
-@property (nonatomic, strong) NSMutableData   *receivedData;
 @property (nonatomic, strong) NSString        *downloadURL;
-@property (nonatomic, strong) NSPort          *downloadPort;
-@property (nonatomic, strong) NSURLConnection *downloadConnection;
+@property (nonatomic, strong) NSURLSession    *downloadSession;
 @property (nonatomic, strong) NSIndexPath     *containerIndexPath;
 
 @property (nonatomic) CGSize containerSize;
