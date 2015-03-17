@@ -16,11 +16,11 @@
 #pragma mark - Application's Documents Directory
 
 /**
- Returns the base path to the applications's Document directory. (For use with prepoplated SQLite file)
+ Returns the base path to the applications's Document directory. (For use with prepopulated SQLite file)
  */
 
 + (NSString *)applicationPathForFileName:(NSString *)fileName ofType:(NSString *)fileType {
-    NSString *storePath        = [[[[NSURL applicationDocumentsDirectory] URLByAppendingPathComponent:fileName] URLByAppendingPathExtension:fileType] absoluteString];
+    NSString *storePath        = [[[[NSURL applicationDocumentsDirectory] URLByAppendingPathComponent:fileName] URLByAppendingPathExtension:fileType] path];
     NSFileManager *fileManager = [NSFileManager defaultManager];
     NSError *error             = nil;
     
@@ -29,7 +29,7 @@
         
         if (defaultStorePath) {
             if (![fileManager copyItemAtPath:defaultStorePath toPath:storePath error:&error]) {
-                NSLog(@"Unresolved error %@, %@", error, [error userInfo]);
+                NSLog(@"Unresolved error: %@, %@", error, [error userInfo]);
             }
         }
     }
