@@ -38,7 +38,7 @@
             blue  = components[0];
             alpha = components[1];
         }
-            
+        
             break;
             
         case 4: { // UIDeviceRGBColorSpace
@@ -47,11 +47,10 @@
             blue  = components[2];
             alpha = components[3];
         }
-            
+        
             break;
             
         default:
-            
             break;
     }
     

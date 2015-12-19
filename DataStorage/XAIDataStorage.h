@@ -10,23 +10,27 @@
 #import <CoreData/CoreData.h>
 
 @interface XAIDataStorage : NSObject {
-    NSManagedObjectContext       *managedObjectContext;
-    NSManagedObjectModel         *managedObjectModel;
-    NSPersistentStoreCoordinator *persistentStoreCoordinator;
+    
 }
 
+@property (nonatomic, copy, readonly)   NSString                     *managedObjectModelName;
 @property (nonatomic, strong, readonly) NSManagedObjectContext       *managedObjectContext;
 @property (nonatomic, strong, readonly) NSManagedObjectModel         *managedObjectModel;
 @property (nonatomic, strong, readonly) NSPersistentStoreCoordinator *persistentStoreCoordinator;
 
 /**
- * For all subsequent calls, use this.
+ * For the first call, use this. Must be called before using any XAIDataStorageQuery loading.
+ *
+ * NOTE: The "modelName" is the name of the CoreData .xcdatamodeld file, excluding the .xcdatamodeld extension.
+ */
++ (XAIDataStorage *)sharedStorageWithModelName:(NSString *)modelName;
+
+/**
+ * For all subsequent calls, use this. Uses the "XAIDataStorage" model name by default, if the previous method with model name was not called.
  */
 + (XAIDataStorage *)sharedStorage;
 
 - (void)mergeChanges:(NSNotification *)notification;
 - (void)saveContext;
-- (void)lockContext;
-- (void)unlockContext;
 
 @end

@@ -3,58 +3,53 @@
 //  XAIDataStorage
 //
 //  Created by Xeon Xai <xeonxai@me.com> on 4/10/12.
-//  Copyright (c) 2012 Black Panther White Leopard. All rights reserved.
+//  Copyright (c) 2012-2015 Black Panther White Leopard. All rights reserved.
 //
 
 #import <Foundation/Foundation.h>
 #import <CoreData/CoreData.h>
 
 @interface XAIDataStorageQuery : NSObject <NSFetchedResultsControllerDelegate> {
-    NSFetchedResultsController *fetchedResultsController;
-    
-    @private
-    id <NSFetchedResultsControllerDelegate> __unsafe_unretained delegate;
-    
-    NSManagedObjectContext *fetchQueryContext;
-    
-    NSString     *filterTemplateName;
-    NSString     *filterEntityName;
-    NSString     *filterSortKey;
-    NSString     *filterSectionKeyPath;
-    NSPredicate  *filterPredicate;
-    NSDictionary *filterPredicateSubstitutes;
-    
-    BOOL         filterSortOrderAscending;
+
 }
 
-@property (nonatomic, unsafe_unretained) id <NSFetchedResultsControllerDelegate> delegate;
-@property (nonatomic, strong) NSFetchedResultsController *fetchedResultsController;
-@property (nonatomic, strong) NSManagedObjectContext *fetchQueryContext;
-@property (nonatomic, strong) NSString *filterTemplateName;
-@property (nonatomic, strong) NSString *filterEntityName;
-@property (nonatomic, strong) NSString *filterSortKey;
-@property (nonatomic, strong) NSString *filterSectionKeyPath;
-@property (nonatomic, strong) NSDictionary *filterPredicateSubstitutes;
-@property (nonatomic, strong) NSPredicate *filterPredicate;
+@property (nonatomic, unsafe_unretained, readonly) id <NSFetchedResultsControllerDelegate> fetchDelegate;
+@property (nonatomic, strong, readonly) NSFetchedResultsController *fetchedResultsController;
+@property (nonatomic, strong, readonly) NSManagedObjectContext *fetchQueryContext;
+@property (nonatomic, strong, readonly) NSMutableArray <NSPredicate *> *filterPredicates;
+
+/** Creates an NSFetchRequest for the Template Name with or without Substitute Values. */
+@property (nonatomic, copy) NSString *filterTemplateName;
+@property (nonatomic, strong) NSDictionary <NSString *, id> *filterTemplateSubstitutes;
+
+/** Creates a NSFetchRequest for the Entity Name. */
+@property (nonatomic, copy) NSString *filterEntityName;
+
+/** Sort By. */
+@property (nonatomic, copy) NSString *filterSortKey;
+
+/** Order Ascending/Descending. */
 @property (nonatomic, getter = isFilterSortOrderAscending) BOOL filterSortOrderAscending;
 
-- (NSArray *)fetchedObjectsForEntityName:(NSString *)entityName withPredicate:(NSPredicate *)predicate;
-- (NSArray *)fetchedObjectsForEntityName:(NSString *)entityName withPredicate:(NSPredicate *)predicate withSortKey:(NSString *)sortKey;
-- (NSArray *)fetchedObjectsForEntityName:(NSString *)entityName withPredicate:(NSPredicate *)predicate withSortKey:(NSString *)sortingKey isAscending:(BOOL)sortOrder;
-- (NSArray *)fetchedObjectsForEntityName:(NSString *)entityName withPredicate:(NSPredicate *)predicate withSortKey:(NSString *)sortingKey isAscending:(BOOL)sortOrder groupBy:(NSString *)groupByKey;
+/** Group By (Sections) */
+@property (nonatomic, copy) NSString *filterSectionKeyPath;
 
-- (NSArray *)fetchedObjectsForEntityName:(NSString *)entityName withSortKey:(NSString *)sortingKey;
-- (NSArray *)fetchedObjectsForEntityName:(NSString *)entityName withSortKey:(NSString *)sortingKey isAscending:(BOOL)sortOrder;
-- (NSArray *)fetchedObjectsForEntityName:(NSString *)entityName withSortKey:(NSString *)sortingKey isAscending:(BOOL)sortOrder groupBy:(NSString *)groupByKey;
+#pragma mark - Init
 
-- (NSArray *)fetchedObjectsForEntityName:(NSString *)entityName withSortKey:(NSString *)sortingKey predicateColumn:(NSString *)columnName predicateValue:(id)columnValue;
-- (NSArray *)fetchedObjectsForEntityName:(NSString *)entityName withSortKey:(NSString *)sortingKey predicateColumn:(NSString *)columnName predicateValue:(id)columnValue isAscending:(BOOL)sortOrder;
+- (instancetype)initWithDelegate:(id <NSFetchedResultsControllerDelegate>)incomingDelegate;
+- (instancetype)initWithContext:(NSManagedObjectContext *)incomingContext delegate:(id <NSFetchedResultsControllerDelegate>)incomingDelegate;
+- (instancetype)initWithContext:(NSManagedObjectContext *)incomingContext;
 
-- (NSArray *)fetchedObjectsForTemplateName:(NSString *)fetchTemplateName withSubstitutes:(NSDictionary *)substitutes;
-- (NSArray *)fetchedObjectsForTemplateName:(NSString *)fetchTemplateName withSubstitutes:(NSDictionary *)substitutes withSortKey:(NSString *)sortingKey;
+#pragma mark - NSArray
 
-- (id)initWithDelegate:(id <NSFetchedResultsControllerDelegate>)incomingDelegate;
-- (id)initWithContext:(NSManagedObjectContext *)incomingContext;
-- (id)initWithContext:(NSManagedObjectContext *)incomingContext withEntityName:(NSString *)entityName;
+- (NSArray <NSManagedObject *> *)fetchObjects;
+- (NSArray <NSDictionary <NSString *, id> *> *)fetchExpressionFunction:(NSString *)function column:(NSString *)column;
+
+- (void)addPredicate:(NSPredicate *)aPredicate;
+- (void)addPredicateForColumnName:(NSString *)columnName withValue:(id)columnValue;
+
+#pragma mark - Reset Filters to Defaults
+
+- (void)reset;
 
 @end

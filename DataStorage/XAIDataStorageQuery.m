@@ -8,7 +8,6 @@
 
 #import "XAIDataStorageQuery.h"
 #import "XAIDataStorage.h"
-#import "XAIDataStorageDefines.h"
 
 /** XAILogging */
 #import "NSError+XAILogging.h"
@@ -16,66 +15,65 @@
 
 @interface XAIDataStorageQuery ()
 
-- (void)resetDefaults;
+- (NSFetchRequest *)fetchRequest;
+
+@property (nonatomic, strong, readwrite) NSFetchedResultsController *fetchedResultsController;
+@property (nonatomic, unsafe_unretained, readwrite) id <NSFetchedResultsControllerDelegate> fetchDelegate;
+@property (nonatomic, strong, readwrite) NSManagedObjectContext *fetchQueryContext;
+@property (nonatomic, strong, readwrite) NSMutableArray <NSPredicate *> *filterPredicates;
 
 @end
 
 @implementation XAIDataStorageQuery
 
-@synthesize fetchedResultsController = __fetchedResultsController;
-@synthesize fetchQueryContext        = __fetchQueryContext;
-@synthesize delegate                 = __delegate;
+@synthesize fetchedResultsController    = _fetchedResultsController;
+@synthesize fetchQueryContext           = _fetchQueryContext;
+@synthesize fetchDelegate               = _fetchDelegate;
+@synthesize filterEntityName            = _filterEntityName;
+@synthesize filterTemplateName          = _filterTemplateName;
+@synthesize filterTemplateSubstitutes   = _filterTemplateSubstitutes;
+@synthesize filterSortKey               = _filterSortKey;
+@synthesize filterSectionKeyPath        = _filterSectionKeyPath;
+@synthesize filterSortOrderAscending    = _filterSortOrderAscending;
+@synthesize filterPredicates            = _filterPredicates;
 
-@synthesize filterTemplateName, filterEntityName, filterSortKey, filterSectionKeyPath;
-@synthesize filterSortOrderAscending;
-@synthesize filterPredicate, filterPredicateSubstitutes;
-
-- (id)init {
+- (instancetype)init {
     self = [super init];
     
     if (self) {
         /** Self defaults. */
-        self.delegate                   = self;
-        
-        /** Nil defaults. */
-        self.filterEntityName           = nil;
-        self.filterTemplateName         = nil;
-        self.filterPredicate            = nil;
-        self.filterPredicateSubstitutes = nil;
-        self.filterSectionKeyPath       = nil;
-        self.filterSortKey              = nil;
-        self.fetchQueryContext          = nil;
+        _fetchDelegate = self;
     }
     
     return self;
 }
 
-- (id)initWithDelegate:(id <NSFetchedResultsControllerDelegate>)incomingDelegate {
+- (instancetype)initWithDelegate:(id <NSFetchedResultsControllerDelegate>)incomingDelegate {
     self = [super init];
     
     if (self) {
-        self.delegate = incomingDelegate;
+        _fetchDelegate     = incomingDelegate;
     }
     
     return self;
 }
 
-- (id)initWithContext:(NSManagedObjectContext *)incomingContext {
-    self = [self init];
+- (instancetype)initWithContext:(NSManagedObjectContext *)incomingContext delegate:(id <NSFetchedResultsControllerDelegate>)incomingDelegate {
+    self = [super init];
     
     if (self) {
-        self.fetchQueryContext = incomingContext;
+        _fetchQueryContext = incomingContext;
+        _fetchDelegate     = incomingDelegate;
     }
     
     return self;
 }
 
-- (id)initWithContext:(NSManagedObjectContext *)incomingContext withEntityName:(NSString *)entityName {
+- (instancetype)initWithContext:(NSManagedObjectContext *)incomingContext {
     self = [self init];
     
     if (self) {
-        self.fetchQueryContext = incomingContext;
-        self.filterEntityName  = entityName;
+        _fetchQueryContext = incomingContext;
     }
     
     return self;
@@ -93,15 +91,17 @@
         [fetchedResultsController release];
     #endif
     
-    filterPredicate            = nil;
-    filterPredicateSubstitutes = nil;
-    filterTemplateName         = nil;
-    filterEntityName           = nil;
-    filterSortKey              = nil;
-    filterSectionKeyPath       = nil;
-    fetchQueryContext          = nil;
-    fetchedResultsController   = nil;
-    delegate                   = nil;
+    _fetchedResultsController.delegate = nil;
+    
+    _fetchedResultsController   = nil;
+    _fetchQueryContext          = nil;
+    _fetchDelegate              = nil;
+    _filterPredicates           = nil;
+    _filterTemplateName         = nil;
+    _filterTemplateSubstitutes  = nil;
+    _filterEntityName           = nil;
+    _filterSortKey              = nil;
+    _filterSectionKeyPath       = nil;
     
     #if !__has_feature(objc_arc)
         [super dealloc];
@@ -110,132 +110,146 @@
 
 #pragma mark - Reset Defaults
 
-- (void)resetDefaults {
-    if (__fetchedResultsController != nil) {
-        __fetchedResultsController.delegate = nil;
-        __fetchedResultsController          = nil;
+- (void)reset {
+    if (_fetchedResultsController != nil) {
+        _fetchedResultsController.delegate = nil;
+        _fetchedResultsController          = nil;
     }
     
     /** Nil objects */
     [self setFilterEntityName:nil];
-    [self setFilterPredicate:nil];
-    [self setFilterPredicateSubstitutes:nil];
+    [self setFilterPredicates:nil];
     [self setFilterSectionKeyPath:nil];
     [self setFilterTemplateName:nil];
+    [self setFilterTemplateSubstitutes:nil];
     
     /** Sorting Defaults */
-    [self setFilterSortKey:kXAIDataStorageDefaultSortKey];
-    [self setFilterSortOrderAscending:kXAIDataStorageDefaultSortOrderAscending];
+    [self setFilterSortKey:nil];
+    [self setFilterSortOrderAscending:YES];
+}
+
+#pragma mark - NSPredicate
+
+- (NSMutableArray *)filterPredicates {
+    if (_filterPredicates) {
+        return _filterPredicates;
+    }
+    
+    _filterPredicates = [[NSMutableArray alloc] init];
+    
+    return _filterPredicates;
+}
+
+- (void)addPredicate:(NSPredicate *)aPredicate {
+    if (!aPredicate) {
+        NSLog(@"Predicate is nil. Unable to add predicate.");
+        
+        return;
+    }
+    
+    [self.filterPredicates addObject:aPredicate];
+}
+
+- (void)addPredicateForColumnName:(NSString *)columnName withValue:(id)columnValue {
+    if (!columnName || !columnValue) {
+        NSLog(@"Column name {%@} or value {%@} is nil. Unable to add predicate.", columnName, columnValue);
+        
+        return;
+    }
+    
+    NSPredicate *aPredicate = [NSPredicate predicateWithFormat:@"%K == %@", columnName, columnValue];
+    
+    [self.filterPredicates addObject:aPredicate];
 }
 
 #pragma mark - Fetched Objects Array
 
-- (NSArray *)fetchedObjectsForTemplateName:(NSString *)fetchTemplateName withSubstitutes:(NSDictionary *)substitutes {
-    [self resetDefaults];
+- (NSArray <NSManagedObject *> *)fetchObjects {
+    return self.fetchedResultsController.fetchedObjects;
+}
+
+#pragma mark - NSArray
+
+- (NSArray <NSDictionary <NSString *, id> *> *)fetchExpressionFunction:(NSString *)function column:(NSString *)column {
+    // Create the fetch request for the entity.
+    NSFetchRequest *aFetchRequest = [self fetchRequest];
     
-    self.filterTemplateName         = fetchTemplateName;
-    self.filterPredicateSubstitutes = substitutes;
-    
-    return [self.fetchedResultsController fetchedObjects];
-}
-
-- (NSArray *)fetchedObjectsForTemplateName:(NSString *)fetchTemplateName withSubstitutes:(NSDictionary *)substitutes withSortKey:(NSString *)sortingKey {
-    [self resetDefaults];
-    
-    self.filterSortKey              = sortingKey;
-    self.filterTemplateName         = fetchTemplateName;
-    self.filterPredicateSubstitutes = substitutes;
-    
-    return [self.fetchedResultsController fetchedObjects];
-}
-
-- (NSArray *)fetchedObjectsForEntityName:(NSString *)entityName withPredicate:(NSPredicate *)predicate {
-    return [self fetchedObjectsForEntityName:entityName withPredicate:predicate withSortKey:kXAIDataStorageDefaultSortKey];
-}
-
-- (NSArray *)fetchedObjectsForEntityName:(NSString *)entityName withPredicate:(NSPredicate *)predicate withSortKey:(NSString *)sortKey {
-    return [self fetchedObjectsForEntityName:entityName withPredicate:predicate withSortKey:sortKey isAscending:kXAIDataStorageDefaultSortOrderAscending];
-}
-
-- (NSArray *)fetchedObjectsForEntityName:(NSString *)entityName withPredicate:(NSPredicate *)predicate withSortKey:(NSString *)sortingKey isAscending:(BOOL)sortOrder {
-    return [self fetchedObjectsForEntityName:entityName withPredicate:predicate withSortKey:sortingKey isAscending:sortOrder groupBy:nil];
-}
-
-- (NSArray *)fetchedObjectsForEntityName:(NSString *)entityName withPredicate:(NSPredicate *)predicate withSortKey:(NSString *)sortingKey isAscending:(BOOL)sortOrder groupBy:(NSString *)groupByKey {
-    [self resetDefaults];
-    
-    self.filterSectionKeyPath     = groupByKey;
-    self.filterSortKey            = sortingKey;
-    self.filterSortOrderAscending = sortOrder;
-    self.filterEntityName         = entityName;
-    self.filterPredicate          = predicate;
-    
-    return [self.fetchedResultsController fetchedObjects];
-}
-
-- (NSArray *)fetchedObjectsForEntityName:(NSString *)entityName withSortKey:(NSString *)sortingKey isAscending:(BOOL)sortOrder groupBy:(NSString *)groupByKey {
-    [self resetDefaults];
-    
-    self.filterSectionKeyPath     = groupByKey;
-    self.filterSortKey            = sortingKey;
-    self.filterSortOrderAscending = sortOrder;
-    self.filterEntityName         = entityName;
-    
-    return [self.fetchedResultsController fetchedObjects];
-}
-
-- (NSArray *)fetchedObjectsForEntityName:(NSString *)entityName withSortKey:(NSString *)sortingKey {
-    return [self fetchedObjectsForEntityName:entityName withSortKey:sortingKey isAscending:kXAIDataStorageDefaultSortOrderAscending];
-}
-
-- (NSArray *)fetchedObjectsForEntityName:(NSString *)entityName withSortKey:(NSString *)sortingKey isAscending:(BOOL)sortOrder {
-    return [self fetchedObjectsForEntityName:entityName withSortKey:sortingKey isAscending:sortOrder groupBy:nil];
-}
-
-- (NSArray *)fetchedObjectsForEntityName:(NSString *)entityName withSortKey:(NSString *)sortingKey predicateColumn:(NSString *)columnName predicateValue:(id)columnValue {
-    return [self fetchedObjectsForEntityName:entityName withSortKey:sortingKey predicateColumn:columnName predicateValue:columnValue isAscending:kXAIDataStorageDefaultSortOrderAscending];
-}
-
-- (NSArray *)fetchedObjectsForEntityName:(NSString *)entityName withSortKey:(NSString *)sortingKey predicateColumn:(NSString *)columnName predicateValue:(id)columnValue isAscending:(BOOL)sortOrder {
-    [self resetDefaults];
-    
-    self.filterPredicate          = [NSPredicate predicateWithFormat:@"%K == %@", columnName, columnValue];
-    self.filterSortKey            = sortingKey;
-    self.filterSortOrderAscending = sortOrder;
-    self.filterEntityName         = entityName;
-    
-    return [self.fetchedResultsController fetchedObjects];
-}
-
-#pragma mark - NSFetchedResultsController
-
-- (NSFetchedResultsController *)fetchedResultsController {
-    if (__fetchedResultsController != nil) {
-        return __fetchedResultsController;
+    if (!aFetchRequest) {
+        if (DEBUG) {
+            NSLog(@"NSFetchRequest is nil.");
+        }
+        
+        return nil;
     }
     
+    if (!self.fetchQueryContext) {
+        if (DEBUG) {
+            NSLog(@"NSManagedObjectContext is nil.");
+        }
+        
+        return nil;
+    }
+    
+    if (column == nil || function == nil) {
+        NSLog(@"Column {%@} or Function {%@} is nil. Unable to perform the expected Core Data function on the column.", column, function);
+        
+        return nil;
+    }
+    
+    NSExpression *keyPathExpression  = [NSExpression expressionForKeyPath:column];
+    NSExpression *functionExpression = [NSExpression expressionForFunction:function arguments:@[keyPathExpression]];
+    
+    NSExpressionDescription *expressionDescription = [[NSExpressionDescription alloc] init];
+    
+    [expressionDescription setName:column];
+    [expressionDescription setExpression:functionExpression];
+    [expressionDescription setExpressionResultType:NSInteger32AttributeType];
+    
+    [aFetchRequest setResultType:NSDictionaryResultType];
+    [aFetchRequest setPropertiesToFetch:@[expressionDescription]];
+    
+    NSError *error;
+    NSArray *results = [self.fetchQueryContext executeFetchRequest:aFetchRequest error:&error];
+    
+    if (error != nil) {
+        [error logDetailsFailedOnSelector:_cmd line:__LINE__];
+        
+        return nil;
+    }
+    
+    return results;
+}
+
+#pragma mark - NSFetchRequest
+
+- (NSFetchRequest *)fetchRequest {
     // Set up the fetched request controller.
-    NSFetchRequest *fetchRequest = nil;
+    NSFetchRequest *aFetchRequest = nil;
     
     // Set the entity name.
     NSString *fetchEntityName = nil;
     
     if (self.filterEntityName != nil) {
         // Create the fetch request for the entity.
-        fetchRequest    = [NSFetchRequest fetchRequestWithEntityName:self.filterEntityName];
+        aFetchRequest    = [NSFetchRequest fetchRequestWithEntityName:self.filterEntityName];
         fetchEntityName = self.filterEntityName;
     } else if (self.filterTemplateName != nil) {
         // Set up the managed object model.
         NSManagedObjectModel *managedObjectModel = [XAIDataStorage sharedStorage].managedObjectModel;
         
-        fetchRequest    = [managedObjectModel fetchRequestFromTemplateWithName:self.filterTemplateName substitutionVariables:self.filterPredicateSubstitutes];
-        fetchEntityName = [fetchRequest entityName];
+        aFetchRequest = (self.filterTemplateSubstitutes != nil && [self.filterTemplateSubstitutes count] > 0)
+            ? [managedObjectModel fetchRequestFromTemplateWithName:self.filterTemplateName substitutionVariables:self.filterTemplateSubstitutes]
+            : [managedObjectModel fetchRequestTemplateForName:self.filterTemplateName];
+        
+        fetchEntityName = [aFetchRequest entityName];
     } else {
         /** Do nothing. */
     }
     
-    if (self.filterPredicate) {
-        [fetchRequest setPredicate:self.filterPredicate];
+    if ([self.filterPredicates count] > 0) {
+        NSPredicate *predicate = [NSCompoundPredicate orPredicateWithSubpredicates:self.filterPredicates];
+        
+        [aFetchRequest setPredicate:predicate];
     }
     
     if (!self.fetchQueryContext) {
@@ -244,15 +258,15 @@
     
     // Set the fetch request entity.
     NSEntityDescription *entity = [NSEntityDescription entityForName:fetchEntityName inManagedObjectContext:self.fetchQueryContext];
-    [fetchRequest setEntity:entity];
+    [aFetchRequest setEntity:entity];
     
     // Set the batch size to a suitable number.
-    [fetchRequest setFetchBatchSize:20];
+    [aFetchRequest setFetchBatchSize:20];
     
     // Edit the sort key as appropriate.
     NSArray *sortDescriptors = [[NSArray alloc] init];
     
-    if (self.filterSectionKeyPath) {
+    if ((self.filterSectionKeyPath != nil && self.filterSectionKeyPath.length > 0) && (self.filterSortKey != nil && self.filterSortKey.length > 0)) {
         NSArray *sortFilters = [[NSArray alloc] initWithObjects:self.filterSectionKeyPath, self.filterSortKey, nil];
         NSMutableArray *groupedSortDescriptors = [[NSMutableArray alloc] init];
         
@@ -268,7 +282,7 @@
             [groupedSortDescriptors release];
             [sortFilters release];
         #endif
-    } else {
+    } else if ((self.filterSortKey != nil && self.filterSortKey.length > 0)) {
         NSSortDescriptor *filterSortKeyDescriptor = [[NSSortDescriptor alloc] initWithKey:self.filterSortKey ascending:self.isFilterSortOrderAscending];
         
         sortDescriptors = [[NSArray alloc] initWithObjects:filterSortKeyDescriptor, nil];
@@ -278,14 +292,26 @@
         #endif
     }
     
-    [fetchRequest setSortDescriptors:sortDescriptors];
+    [aFetchRequest setSortDescriptors:sortDescriptors];
     
     #if !__has_feature(objc_arc)
         [sortDescriptors release];
     #endif
     
-    if (!fetchRequest) {
-        if (kXAIDataStorageDebugging) {
+    return aFetchRequest;
+}
+
+#pragma mark - NSFetchedResultsController
+
+- (NSFetchedResultsController *)fetchedResultsController {
+    if (_fetchedResultsController != nil) {
+        return _fetchedResultsController;
+    }
+    
+    NSFetchRequest *aFetchRequest = [self fetchRequest];
+    
+    if (!aFetchRequest) {
+        if (DEBUG) {
             NSLog(@"NSFetchRequest is nil.");
         }
         
@@ -293,7 +319,7 @@
     }
     
     if (!self.fetchQueryContext) {
-        if (kXAIDataStorageDebugging) {
+        if (DEBUG) {
             NSLog(@"NSManagedObjectContext is nil.");
         }
         
@@ -302,31 +328,28 @@
     
     // Edit the section name key path and cache name if appropriate.
     // nil for section name key path means "no sections".
-    NSFetchedResultsController *aFetchedResultsController = [[NSFetchedResultsController alloc] initWithFetchRequest:fetchRequest managedObjectContext:self.fetchQueryContext sectionNameKeyPath:self.filterSectionKeyPath cacheName:nil];
-    aFetchedResultsController.delegate = self.delegate;
+    NSFetchedResultsController *aFetchedResultsController = [[NSFetchedResultsController alloc] initWithFetchRequest:aFetchRequest managedObjectContext:self.fetchQueryContext sectionNameKeyPath:self.filterSectionKeyPath cacheName:nil];
+    aFetchedResultsController.delegate = self.fetchDelegate;
     self.fetchedResultsController = aFetchedResultsController;
     
     #if !__has_feature(objc_arc)
         [aFetchedResultsController release];
     #endif
     
-    NSError *error = nil;
-    
     /** Lock the managed object context. */
-    [self.fetchQueryContext lock];
-    
-    @try {
-        if (![self.fetchedResultsController performFetch:&error]) {
-            [error logDetailsFailedOnSelector:_cmd line:__LINE__];
+    [self.fetchQueryContext performBlockAndWait:^{
+        @try {
+            NSError *error = nil;
+            
+            if (![self.fetchedResultsController performFetch:&error]) {
+                [error logDetailsFailedOnSelector:_cmd line:__LINE__];
+            }
+        } @catch (NSException *exception) {
+            [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
         }
-    } @catch (NSException *exception) {
-        [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
-    }
+    }];
     
-    /** Unlock the managed object context. */
-    [self.fetchQueryContext unlock];
-    
-    return __fetchedResultsController;
+    return _fetchedResultsController;
 }
 
 @end

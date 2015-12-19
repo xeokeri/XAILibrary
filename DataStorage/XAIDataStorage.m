@@ -7,7 +7,6 @@
 //
 
 #import "XAIDataStorage.h"
-#import "XAIDataStorageDefines.h"
 #import "XAIDataStorageNotification.h"
 
 /** XAILogging */
@@ -18,39 +17,66 @@
 #import "NSString+XAIUtilities.h"
 #import "NSURL+XAIUtilities.h"
 
-/** Shared Instance */
-static XAIDataStorage *dataStorageInstance;
-
 @interface XAIDataStorage()
 
 - (void)contextDidSaveWithNotification:(NSNotification *)notification;
 - (void)contextObjectsDidChangeWithNotification:(NSNotification *)notification;
 
+@property (nonatomic, copy, readwrite) NSString *managedObjectModelName;
+
 @end
 
 @implementation XAIDataStorage
 
-@synthesize managedObjectContext       = __managedObjectContext;
-@synthesize managedObjectModel         = __managedObjectModel;
-@synthesize persistentStoreCoordinator = __persistentStoreCoordinator;
+@synthesize managedObjectContext       = _managedObjectContext;
+@synthesize managedObjectModel         = _managedObjectModel;
+@synthesize persistentStoreCoordinator = _persistentStoreCoordinator;
+@synthesize managedObjectModelName     = _managedObjectModelName;
+
+/** Shared Instance */
+static XAIDataStorage *_dataStorageInstance;
 
 #pragma mark - Init
 
 + (XAIDataStorage *)sharedStorage {
-    if (dataStorageInstance != nil) {
-        return dataStorageInstance;
-    }
-    
-    @synchronized(self) {
-        if (!dataStorageInstance) {
-            dataStorageInstance = [[XAIDataStorage alloc] init];
+    if (_dataStorageInstance != nil ) {
+        if (_dataStorageInstance.managedObjectModelName == nil) {
+            NSString *reasonString = [[NSString alloc] initWithFormat:@"The method `%@` was called out of order.", NSStringFromSelector(_cmd)];
+
+            @throw([NSException exceptionWithName:@"XAIDataStorageException" reason:reasonString userInfo:nil]);
         }
+        
+        return _dataStorageInstance;
     }
     
-    return dataStorageInstance;
+    static dispatch_once_t onceToken;
+    
+    dispatch_once(&onceToken, ^{
+        _dataStorageInstance = [[XAIDataStorage alloc] initWithModelName:[[self class] description]];
+    });
+    
+    return _dataStorageInstance;
 }
 
-- (id)init {
++ (XAIDataStorage *)sharedStorageWithModelName:(NSString *)modelName {
+    if (_dataStorageInstance != nil) {
+        NSString *reasonString = [[NSString alloc] initWithFormat:@"The method `%@` was called out of order.", NSStringFromSelector(_cmd)];
+        
+        @throw([NSException exceptionWithName:@"XAIDataStorageException" reason:reasonString userInfo:nil]);
+        
+        return _dataStorageInstance;
+    }
+    
+    static dispatch_once_t onceToken;
+    
+    dispatch_once(&onceToken, ^{
+        _dataStorageInstance = [[XAIDataStorage alloc] initWithModelName:modelName];
+    });
+    
+    return _dataStorageInstance;
+}
+
+- (instancetype)init {
     self = [super init];
     
     if (self) {
@@ -62,16 +88,25 @@ static XAIDataStorage *dataStorageInstance;
     return self;
 }
 
-#pragma mark - Memory Management
+- (instancetype)initWithModelName:(NSString *)modelName {
+    self = [self init];
+    
+    if (self) {
+        _managedObjectModelName = modelName;
+    }
+    
+    return self;
+}
 
+#pragma mark - Memory Management
 - (void)dealloc {
     /** End notifications. */
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     
     #if !__has_feature(objc_arc)
-        [__managedObjectContext release];
-        [__managedObjectModel release];
-        [__persistentStoreCoordinator release];
+        [_managedObjectContext release];
+        [_managedObjectModel release];
+        [_persistentStoreCoordinator release];
     
         [super dealloc];
     #endif
@@ -80,8 +115,8 @@ static XAIDataStorage *dataStorageInstance;
 #pragma mark - NSNotification
 
 - (void)mergeChanges:(NSNotification *)notification {
-    if (kXAIDataStorageDebugging) {
-        NSLog(@"Merging changes.");
+    if (DEBUG) {
+        NSLog(@"Merging changes with notification: %@", notification);
     }
     
     [self.managedObjectContext performSelector:@selector(mergeChangesFromContextDidSaveNotification:) onThread:[NSThread mainThread] withObject:notification waitUntilDone:NO];
@@ -104,30 +139,21 @@ static XAIDataStorage *dataStorageInstance;
 #pragma mark - NSManagedObjectContext Save
 
 - (void)saveContext {
-    NSError *error = nil;
     NSManagedObjectContext *moc = self.managedObjectContext;
     
     if (moc != nil) {
-        @try {
-            if ([moc hasChanges] && ![moc save:&error]) {
-                [error logDetailsFailedOnSelector:_cmd line:__LINE__];
+        [moc performBlockAndWait:^{
+            @try {
+                NSError *error = nil;
+                
+                if ([moc hasChanges] && ![moc save:&error]) {
+                    [error logDetailsFailedOnSelector:_cmd line:__LINE__];
+                }
+            } @catch (NSException *exception) {
+                [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
             }
-        } @catch (NSException *exception) {
-            [exception logDetailsFailedOnSelector:_cmd line:__LINE__ onClass:[[self class] description]];
-        }
+        }];
     }
-}
-
-#pragma mark - NSManagedObjectContext Lock
-
-- (void)lockContext {
-    [self.managedObjectContext lock];
-}
-
-#pragma mark - NSManagedObjectContext Unlock
-
-- (void)unlockContext {
-    [self.managedObjectContext unlock];
 }
 
 #pragma mark - Core Data stack
@@ -137,30 +163,31 @@ static XAIDataStorage *dataStorageInstance;
  If the context doesn't already exist, it is created and bound to the persistent store coordinator for the application.
  */
 - (NSManagedObjectContext *)managedObjectContext {
-    if (__managedObjectContext != nil) {
-        return __managedObjectContext;
+    if (_managedObjectContext != nil) {
+        return _managedObjectContext;
     }
     
-    // TODO: Migrate to use dispatch_once across the whole library code base.
-    @synchronized(self) {
+    static dispatch_once_t onceToken;
+    
+    dispatch_once(&onceToken, ^{
         NSPersistentStoreCoordinator *coordinator = [self persistentStoreCoordinator];
         
         if (coordinator != nil) {
             NSUndoManager *undoManager = [[NSUndoManager alloc] init];
             
-            __managedObjectContext = [[NSManagedObjectContext alloc] init];
+            _managedObjectContext = [[NSManagedObjectContext alloc] initWithConcurrencyType:NSMainQueueConcurrencyType];
             
-            [__managedObjectContext setUndoManager:undoManager];
-            [__managedObjectContext setPersistentStoreCoordinator:coordinator];
-            [__managedObjectContext setMergePolicy:NSMergeByPropertyStoreTrumpMergePolicy];
+            [_managedObjectContext setUndoManager:undoManager];
+            [_managedObjectContext setPersistentStoreCoordinator:coordinator];
+            [_managedObjectContext setMergePolicy:NSMergeByPropertyStoreTrumpMergePolicy];
             
             #if !__has_feature(objc_arc)
                 [undoManager release];
             #endif
         }
-    }
+    });
     
-    return __managedObjectContext;
+    return _managedObjectContext;
 }
 
 /**
@@ -168,18 +195,19 @@ static XAIDataStorage *dataStorageInstance;
  If the model doesn't already exist, it is created from the application's model.
  */
 - (NSManagedObjectModel *)managedObjectModel {
-    if (__managedObjectModel != nil) {
-        return __managedObjectModel;
+    if (_managedObjectModel != nil) {
+        return _managedObjectModel;
     }
     
-    // TODO: Migrate to use dispatch_once across the whole library code base.
-    @synchronized(self) {
-        NSURL *modelURL = [[NSBundle mainBundle] URLForResource:kXAIDataStorageModelName withExtension:@"momd"];
+    static dispatch_once_t onceToken;
+    
+    dispatch_once(&onceToken, ^{
+        NSURL *modelURL = [[NSBundle mainBundle] URLForResource:self.managedObjectModelName withExtension:@"momd"];
         
-        __managedObjectModel = [[NSManagedObjectModel alloc] initWithContentsOfURL:modelURL];
-    }
+        _managedObjectModel = [[NSManagedObjectModel alloc] initWithContentsOfURL:modelURL];
+    });
     
-    return __managedObjectModel;
+    return _managedObjectModel;
 }
 
 /**
@@ -187,13 +215,14 @@ static XAIDataStorage *dataStorageInstance;
  If the coordinator doesn't already exist, it is created and the application's store added to it.
  */
 - (NSPersistentStoreCoordinator *)persistentStoreCoordinator {
-    if (__persistentStoreCoordinator != nil) {
-        return __persistentStoreCoordinator;
+    if (_persistentStoreCoordinator != nil) {
+        return _persistentStoreCoordinator;
     }
     
-    // TODO: Migrate to use dispatch_once across the whole library code base.
-    @synchronized(self) {
-        __persistentStoreCoordinator = [[NSPersistentStoreCoordinator alloc] initWithManagedObjectModel:[self managedObjectModel]];
+    static dispatch_once_t onceToken;
+    
+    dispatch_once(&onceToken, ^{
+        _persistentStoreCoordinator = [[NSPersistentStoreCoordinator alloc] initWithManagedObjectModel:[self managedObjectModel]];
         
         // Disabling the WAL setting.
         // TODO: Update to handle the iOS 7 WAL settings and remove this in the future.
@@ -202,10 +231,10 @@ static XAIDataStorage *dataStorageInstance;
         // Base persistance settings.
         NSDictionary *storageOptions       = @{NSMigratePersistentStoresAutomaticallyOption: @YES, NSInferMappingModelAutomaticallyOption: @YES, NSSQLitePragmasOption: pragmaOptions};
         NSError *persistantStoreLoadError  = nil;
-        NSString *persistantStorePath      = [NSString applicationPathForFileName:kXAIDataStorageModelName ofType:@"sqlite"];
+        NSString *persistantStorePath      = [NSString applicationPathForFileName:self.managedObjectModelName ofType:@"sqlite"];
         NSURL *persistantStoreURL          = [[NSURL alloc] initFileURLWithPath:persistantStorePath];
         
-        if (![__persistentStoreCoordinator addPersistentStoreWithType:NSSQLiteStoreType configuration:nil URL:persistantStoreURL options:storageOptions error:&persistantStoreLoadError]) {
+        if (![_persistentStoreCoordinator addPersistentStoreWithType:NSSQLiteStoreType configuration:nil URL:persistantStoreURL options:storageOptions error:&persistantStoreLoadError]) {
             /*
              Replace this implementation with code to handle the error appropriately.
              
@@ -232,9 +261,9 @@ static XAIDataStorage *dataStorageInstance;
             NSLog(@"Unresolved error %@, %@", persistantStoreLoadError, [persistantStoreLoadError userInfo]);
             abort();
         }
-    }
+    });
     
-    return __persistentStoreCoordinator;
+    return _persistentStoreCoordinator;
 }
 
 @end
